@@ -57,7 +57,7 @@ class BulkImport::xenForo < BulkImport::Base
 
     #import_groups
     import_users
-    import_group_users
+    #import_group_users
 
     import_user_emails
     import_user_stats
@@ -82,7 +82,6 @@ class BulkImport::xenForo < BulkImport::Base
     import_signatures
   end
 
-=begin
   def import_groups
     puts "Importing groups..."
 
@@ -102,7 +101,6 @@ class BulkImport::xenForo < BulkImport::Base
       }
     end
   end
-=end
 
   def import_users
     puts "Importing users..."
@@ -112,8 +110,8 @@ class BulkImport::xenForo < BulkImport::Base
           FROM #{TABLE_PREFIX}user u
      LEFT JOIN #{TABLE_PREFIX}user_ban ub ON ub.user_id = u.user_id
      LEFT JOIN #{TABLE_PREFIX}user_profile up ON u.user_id = up.user_id
-         WHERE u.userid > #{@last_imported_user_id}
-      ORDER BY u.userid
+         WHERE u.user_id > #{@last_imported_user_id}
+      ORDER BY u.user_id
     SQL
 
     create_users(users) do |row|
@@ -144,10 +142,10 @@ class BulkImport::xenForo < BulkImport::Base
     puts "Importing user emails..."
 
     users = mysql_stream <<-SQL
-        SELECT u.userid, email, joindate
+        SELECT u.user_id, email, register_date
           FROM #{TABLE_PREFIX}user u
-         WHERE u.userid > #{@last_imported_user_id}
-      ORDER BY u.userid
+         WHERE u.user_id > #{@last_imported_user_id}
+      ORDER BY u.user_id
     SQL
 
     create_user_emails(users) do |row|
@@ -164,14 +162,13 @@ class BulkImport::xenForo < BulkImport::Base
     puts "Importing user stats..."
 
     users = mysql_stream <<-SQL
-              SELECT u.userid, joindate, posts, COUNT(t.threadid) AS threads, p.dateline
-                     #{", post_thanks_user_amount, post_thanks_thanked_times" if @has_post_thanks}
+              SELECT u.user_id, register_date, message_count, COUNT(DISTINCT t.thread_id) AS threads, reaction_score AS likes, COUNT(DISTINCT rg.reaction_content_id) AS likes_given
                 FROM #{TABLE_PREFIX}user u
-     LEFT OUTER JOIN #{TABLE_PREFIX}post p ON p.postid = u.lastpostid
-     LEFT OUTER JOIN #{TABLE_PREFIX}thread t ON u.userid = t.postuserid
-               WHERE u.userid > #{@last_imported_user_id}
-            GROUP BY u.userid
-            ORDER BY u.userid
+     LEFT JOIN #{TABLE_PREFIX}thread t ON u.user_id = t.user_id
+     LEFT JOIN #{TABLE_PREFIX}reaction_content rg ON u.user_id = rg.reaction_user_id
+               WHERE u.user_id > #{@last_imported_user_id}
+            GROUP BY u.user_id
+            ORDER BY u.user_id
     SQL
 
     create_user_stats(users) do |row|
@@ -181,14 +178,9 @@ class BulkImport::xenForo < BulkImport::Base
         new_since: Time.zone.at(row[1]),
         post_count: row[2],
         topic_count: row[3],
-        first_post_created_at: row[4] && Time.zone.at(row[4])
+        likes_given: row[5],
+        likes_received: row[4],
       }
-
-      if @has_post_thanks
-        user[:likes_given] = row[5]
-        user[:likes_received] = row[6]
-      end
-
       user
     end
   end

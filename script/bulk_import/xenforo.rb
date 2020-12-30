@@ -259,17 +259,18 @@ class BulkImport::xenForo < BulkImport::Base
     puts "Importing categories..."
 
     categories = mysql_query(<<-SQL
-        SELECT forumid, parentid, title, description, displayorder
-          FROM #{TABLE_PREFIX}forum
-         WHERE forumid > #{@last_imported_category_id}
-      ORDER BY forumid
+        SELECT node_id, parent_node_id, title, description, display_order
+          FROM #{TABLE_PREFIX}node
+         WHERE node_id > #{@last_imported_category_id}
+         AND (node_type_id LIKE 'Category' OR node_type_id LIKE 'Forum')
+      ORDER BY node_id
     SQL
     ).to_a
 
     return if categories.empty?
 
-    parent_categories   = categories.select { |c| c[1] == -1 }
-    children_categories = categories.select { |c| c[1] != -1 }
+    parent_categories   = categories.select { |c| c[1] == 0 }
+    children_categories = categories.select { |c| c[1] != 0 }
 
     parent_category_ids = Set.new parent_categories.map { |c| c[0] }
 

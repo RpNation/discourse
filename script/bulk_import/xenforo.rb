@@ -62,8 +62,8 @@ class BulkImport::xenForo < BulkImport::Base
     import_user_emails
     import_user_stats
 
-    import_user_passwords
-    import_user_salts
+    #import_user_passwords
+    #import_user_salts
     import_user_profiles
 
     import_categories
@@ -106,7 +106,7 @@ class BulkImport::xenForo < BulkImport::Base
     puts "Importing users..."
 
     users = mysql_stream <<-SQL
-        SELECT u.user_id, u.username, u.email, u.register_date, up.dob_year, up.dob_month, up.dob_day, u.last_activity, u.custom_title, up.location, up.website, up.about, u.is_moderator, u.is_staff, u.is_admin, u.is_banned, ub.ban_date, ub.end_date
+        SELECT u.user_id, u.username, u.email, u.register_date, up.dob_year, up.dob_month, up.dob_day, u.last_activity, u.custom_title, u.is_moderator, u.is_staff, u.is_admin, u.is_banned, ub.ban_date, ub.end_date
           FROM #{TABLE_PREFIX}user u
      LEFT JOIN #{TABLE_PREFIX}user_ban ub ON ub.user_id = u.user_id
      LEFT JOIN #{TABLE_PREFIX}user_profile up ON u.user_id = up.user_id
@@ -124,15 +124,12 @@ class BulkImport::xenForo < BulkImport::Base
         date_of_birth: birthday,
         last_seen_at: row[7],
         title: row[8],
-        location: row[9],
-        website: row[10],
-        bio_raw: row[11],
-        moderator: row[12] == 1 || row[13] == 1,
-        admin: row[14] == 1,
+        moderator: row[9] == 1 || row[10] == 1,
+        admin: row[11] == 1,
       }
-      if row[15]
-        u[:suspended_at] = Time.zone.at(row[16])
-        u[:suspended_till] = row[8] > 0 ? Time.zone.at(row[17]) : SUSPENDED_TILL
+      if row[12]
+        u[:suspended_at] = Time.zone.at(row[13])
+        u[:suspended_till] = row[14] > 0 ? Time.zone.at(row[14]) : SUSPENDED_TILL
       end
       u
     end
@@ -243,17 +240,17 @@ class BulkImport::xenForo < BulkImport::Base
     puts "Importing user profiles..."
 
     user_profiles = mysql_stream <<-SQL
-        SELECT userid, homepage, profilevisits
-          FROM #{TABLE_PREFIX}user
-         WHERE userid > #{@last_imported_user_id}
-      ORDER BY userid
+        SELECT user_id, website, about
+          FROM #{TABLE_PREFIX}user_profile
+         WHERE user_id > #{@last_imported_user_id}
+      ORDER BY user_id
     SQL
 
     create_user_profiles(user_profiles) do |row|
       {
         user_id: user_id_from_imported_id(row[0]),
         website: (URI.parse(row[1]).to_s rescue nil),
-        views: row[2],
+        bio_raw: row[2],
       }
     end
   end

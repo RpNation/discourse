@@ -307,11 +307,11 @@ class BulkImport::xenForo < BulkImport::Base
     puts "Importing topics..."
 
     topics = mysql_stream <<-SQL
-        SELECT threadid, title, forumid, postuserid, open, dateline, views, visible, sticky
+        SELECT thread_id, title, node_id, user_id, discussion_open, post_date, view_count, discussion_state, sticky
           FROM #{TABLE_PREFIX}thread t
-         WHERE threadid > #{@last_imported_topic_id}
-           AND EXISTS (SELECT 1 FROM #{TABLE_PREFIX}post p WHERE p.threadid = t.threadid)
-      ORDER BY threadid
+         WHERE thread_id > #{@last_imported_topic_id}
+           AND EXISTS (SELECT 1 FROM #{TABLE_PREFIX}post p WHERE p.thread_id = t.thread_id)
+      ORDER BY thread_id
     SQL
 
     create_topics(topics) do |row|
@@ -325,7 +325,7 @@ class BulkImport::xenForo < BulkImport::Base
         closed: row[4] == 0,
         created_at: created_at,
         views: row[6],
-        visible: row[7] == 1,
+        visible: row[7] == 'visible',
       }
 
       t[:pinned_at] = created_at if row[8] == 1

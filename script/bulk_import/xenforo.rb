@@ -338,31 +338,25 @@ class BulkImport::xenForo < BulkImport::Base
     puts "Importing posts..."
 
     posts = mysql_stream <<-SQL
-        SELECT postid, p.threadid, parentid, userid, p.dateline, p.visible, pagetext
-               #{", post_thanks_amount" if @has_post_thanks}
+        SELECT p.post_id, p.thread_id, p.user_id, p.post_date, p.message_state, p.message, p.reaction_score
 
           FROM #{TABLE_PREFIX}post p
-          JOIN #{TABLE_PREFIX}thread t ON t.threadid = p.threadid
-         WHERE postid > #{@last_imported_post_id}
-      ORDER BY postid
+         WHERE post_id > #{@last_imported_post_id}
+      ORDER BY post_id
     SQL
 
     create_posts(posts) do |row|
       topic_id = topic_id_from_imported_id(row[1])
-      replied_post_topic_id = topic_id_from_imported_post_id(row[2])
-      reply_to_post_number = topic_id == replied_post_topic_id ? post_number_from_imported_id(row[2]) : nil
 
       post = {
         imported_id: row[0],
         topic_id: topic_id,
-        reply_to_post_number: reply_to_post_number,
-        user_id: user_id_from_imported_id(row[3]),
-        created_at: Time.zone.at(row[4]),
-        hidden: row[5] == 0,
-        raw: normalize_text(row[6]),
+        user_id: user_id_from_imported_id(row[2]),
+        created_at: Time.zone.at(row[3]),
+        hidden: row[4] == 'visible',
+        raw: normalize_text(row[5]),
+        like_count: row[6],
       }
-
-      post[:like_count] = row[7] if @has_post_thanks
       post
     end
   end

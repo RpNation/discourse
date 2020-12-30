@@ -15,11 +15,11 @@ class BulkImport::xenForo < BulkImport::Base
   def initialize
     super
 
-    host     = ENV["DB_HOST"] || "localhost"
-    username = ENV["DB_USERNAME"] || "root"
+    host     = ENV["DB_HOST"] || "172.17.0.1"
+    username = ENV["DB_USERNAME"] || "rpn_user"
     password = ENV["DB_PASSWORD"]
-    database = ENV["DB_NAME"] || "vbulletin"
-    charset  = ENV["DB_CHARSET"] || "utf8"
+    database = ENV["DB_NAME"] || "rpnation_xf"
+    charset  = ENV["DB_CHARSET"] || "utf8mb4_general_ci"
 
     @html_entities = HTMLEntities.new
     @encoding = CHARSET_MAP[charset]
@@ -47,15 +47,15 @@ class BulkImport::xenForo < BulkImport::Base
 
   def execute
     # enable as per requirement:
-    # SiteSetting.automatic_backups_enabled = false
-    # SiteSetting.disable_emails = "non-staff"
-    # SiteSetting.authorized_extensions = '*'
+    SiteSetting.automatic_backups_enabled = false
+    SiteSetting.disable_emails = "non-staff"
+    SiteSetting.authorized_extensions = '*'
     # SiteSetting.max_image_size_kb = 102400
     # SiteSetting.max_attachment_size_kb = 102400
     # SiteSetting.clean_up_uploads = false
     # SiteSetting.clean_orphan_uploads_grace_period_hours = 43200
 
-    import_groups
+    #import_groups
     import_users
     import_group_users
 
@@ -82,6 +82,7 @@ class BulkImport::xenForo < BulkImport::Base
     import_signatures
   end
 
+=begin
   def import_groups
     puts "Importing groups..."
 
@@ -101,31 +102,39 @@ class BulkImport::xenForo < BulkImport::Base
       }
     end
   end
+=end
 
   def import_users
     puts "Importing users..."
 
     users = mysql_stream <<-SQL
-        SELECT u.userid, username, email, joindate, birthday, ipaddress, u.usergroupid, bandate, liftdate
+        SELECT u.user_id, u.username, u.email, u.register_date, up.dob_year, up.dob_month, up.dob_day, u.last_activity, u.custom_title, up.location, up.website, up.about, u.is_moderator, u.is_staff, u.is_admin, u.is_banned, ub.ban_date, ub.end_date
           FROM #{TABLE_PREFIX}user u
-     LEFT JOIN #{TABLE_PREFIX}userban ub ON ub.userid = u.userid
+     LEFT JOIN #{TABLE_PREFIX}user_ban ub ON ub.user_id = u.user_id
+     LEFT JOIN #{TABLE_PREFIX}user_profile up ON u.user_id = up.user_id
          WHERE u.userid > #{@last_imported_user_id}
       ORDER BY u.userid
     SQL
 
     create_users(users) do |row|
+      birthday = Date.parse("#{row[4]}-#{row[5]}-#{row[6]}") rescue nil
       u = {
         imported_id: row[0],
         username: normalize_text(row[1]),
         name: normalize_text(row[1]),
         created_at: Time.zone.at(row[3]),
-        date_of_birth: parse_birthday(row[4]),
-        primary_group_id: group_id_from_imported_id(row[6]),
+        date_of_birth: birthday,
+        last_seen_at: row[7],
+        title: row[8],
+        location: row[9],
+        website: row[10],
+        bio_raw: row[11],
+        moderator: row[12] == 1 || row[13] == 1,
+        admin: row[14] == 1,
       }
-      u[:ip_address] = row[5][/\b(?:\d{1,3}\.){3}\d{1,3}\b/] if row[5].present?
-      if row[7]
-        u[:suspended_at] = Time.zone.at(row[7])
-        u[:suspended_till] = row[8] > 0 ? Time.zone.at(row[8]) : SUSPENDED_TILL
+      if row[15]
+        u[:suspended_at] = Time.zone.at(row[16])
+        u[:suspended_till] = row[8] > 0 ? Time.zone.at(row[17]) : SUSPENDED_TILL
       end
       u
     end

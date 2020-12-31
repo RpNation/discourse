@@ -5,7 +5,7 @@ require "set"
 require "mysql2"
 require "htmlentities"
 
-class BulkImport::xenForo < BulkImport::Base
+class BulkImport::XenForo < BulkImport::Base
 
   TABLE_PREFIX = "xf_"
   SUSPENDED_TILL ||= Date.new(3000, 1, 1)
@@ -62,8 +62,6 @@ class BulkImport::xenForo < BulkImport::Base
     import_user_emails
     import_user_stats
 
-    #import_user_passwords
-    #import_user_salts
     import_user_profiles
 
     import_categories
@@ -76,10 +74,9 @@ class BulkImport::xenForo < BulkImport::Base
 
     import_likes
 
-    create_permalink_file
-    import_attachments
-    import_avatars
-    import_signatures
+    #create_permalink_file
+    #import_attachments
+    #import_avatars
   end
 
   def import_groups
@@ -195,43 +192,6 @@ class BulkImport::xenForo < BulkImport::Base
       {
         group_id: group_id_from_imported_id(row[0]),
         user_id: user_id_from_imported_id(row[1]),
-      }
-    end
-  end
-
-  def import_user_passwords
-    puts "Importing user passwords..."
-
-    user_passwords = mysql_stream <<-SQL
-        SELECT userid, password
-          FROM #{TABLE_PREFIX}user
-         WHERE userid > #{@last_imported_user_id}
-      ORDER BY userid
-    SQL
-
-    create_custom_fields("user", "password", user_passwords) do |row|
-      {
-        record_id: user_id_from_imported_id(row[0]),
-        value: row[1],
-      }
-    end
-  end
-
-  def import_user_salts
-    puts "Importing user salts..."
-
-    user_salts = mysql_stream <<-SQL
-        SELECT userid, salt
-          FROM #{TABLE_PREFIX}user
-         WHERE userid > #{@last_imported_user_id}
-           AND LENGTH(COALESCE(salt, '')) > 0
-      ORDER BY userid
-    SQL
-
-    create_custom_fields("user", "salt", user_salts) do |row|
-      {
-        record_id: user_id_from_imported_id(row[0]),
-        value: row[1],
       }
     end
   end
@@ -638,43 +598,6 @@ class BulkImport::xenForo < BulkImport::Base
     end
   end
 
-  def import_signatures
-    puts "Importing user signatures..."
-
-    total_count = mysql_query(<<-SQL
-      SELECT COUNT(userid) count
-        FROM #{TABLE_PREFIX}sigparsed
-    SQL
-    ).first[0].to_i
-    current_count = 0
-
-    user_signatures = mysql_stream <<-SQL
-        SELECT userid, signatureparsed
-          FROM #{TABLE_PREFIX}sigparsed
-      ORDER BY userid
-    SQL
-
-    user_signatures.each do |sig|
-      current_count += 1
-      print_status current_count, total_count
-      user_id = sig[0]
-      user_sig = sig[1]
-      next unless user_id.present? && user_sig.present?
-
-      u = UserCustomField.find_by(name: "import_id", value: user_id).try(:user)
-      next unless u.present?
-
-      # can not hold dupes
-      UserCustomField.where(user_id: u.id, name: ["see_signatures", "signature_raw", "signature_cooked"]).destroy_all
-
-      user_sig.gsub!(/\[\/?sigpic\]/i, "")
-
-      UserCustomField.create!(user_id: u.id, name: "see_signatures", value: true)
-      UserCustomField.create!(user_id: u.id, name: "signature_raw", value: user_sig)
-      UserCustomField.create!(user_id: u.id, name: "signature_cooked", value: PrettyText.cook(user_sig, omit_nofollow: false))
-    end
-  end
-
   def extract_pm_title(title)
     normalize_text(title).scrub.gsub(/^Re\s*:\s*/i, "")
   end
@@ -707,4 +630,4 @@ class BulkImport::xenForo < BulkImport::Base
 
 end
 
-BulkImport::VBulletin.new.run
+BulkImport::XenForo.new.run

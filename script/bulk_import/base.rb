@@ -412,7 +412,7 @@ class BulkImport::Base
     end
 
     user[:username_lower] = user[:username].downcase
-    user[:email] ||= random_email
+    user[:email] ||= random_email.dup
     user[:email].downcase!
 
     # unique email

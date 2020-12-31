@@ -233,12 +233,14 @@ class BulkImport::Base
     puts "Loading imported topic ids..."
     @topics, imported_topic_ids = imported_regular_topic_ids()
     @last_imported_topic_id = imported_topic_ids.max || -1
-    @last_imported_private_topic_id = imported_pm_topic_ids().max || -1
+    @private_topics, imported_private_topic_ids = imported_pm_topic_ids()
+    @last_imported_private_topic_id = imported_private_topic_ids.max || -1
 
     puts "Loading imported post ids..."
     @posts, imported_post_ids = imported_regular_post_ids()
     @last_imported_post_id = imported_post_ids.max || -1
-    @last_imported_private_post_id = imported_pm_post_ids().max || -1
+    @private_posts, imported_private_post_ids = imported_pm_post_ids()
+    @last_imported_private_post_id = imported_private_post_ids.max || -1
   end
 
   def last_id(klass)

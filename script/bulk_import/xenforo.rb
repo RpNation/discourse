@@ -34,15 +34,7 @@ class BulkImport::XenForo < BulkImport::Base
     )
 
     @client.query_options.merge!(as: :array, cache_rows: false)
-
-    @has_post_thanks = mysql_query(<<-SQL
-        SELECT `COLUMN_NAME`
-          FROM `INFORMATION_SCHEMA`.`COLUMNS`
-         WHERE `TABLE_SCHEMA`='#{database}'
-           AND `TABLE_NAME`='user'
-           AND `COLUMN_NAME` LIKE 'post_thanks_%'
-    SQL
-    ).to_a.count > 0
+    
   end
 
   def execute

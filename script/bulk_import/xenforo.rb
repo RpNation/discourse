@@ -70,11 +70,11 @@ class BulkImport::xenForo < BulkImport::Base
     import_topics
     import_posts
 
-    import_likes
-
     import_private_topics
     import_topic_allowed_users
     import_private_posts
+
+    import_likes
 
     create_permalink_file
     import_attachments
@@ -362,29 +362,32 @@ class BulkImport::xenForo < BulkImport::Base
   end
 
   def import_likes
-    return unless @has_post_thanks
     puts "Importing likes..."
 
     @imported_likes = Set.new
     @last_imported_post_id = 0
 
     post_thanks = mysql_stream <<-SQL
-        SELECT postid, userid, date
-          FROM #{TABLE_PREFIX}post_thanks
-         WHERE postid > #{@last_imported_post_id}
-      ORDER BY postid
+        SELECT content_id, reaction_user_id, reaction_date, content_type
+          FROM #{TABLE_PREFIX}reaction_content
+         WHERE content_id > #{@last_imported_post_id}
+         AND (content_type LIKE 'conversation_message' OR content_type LIKE 'post')
+      ORDER BY content_id
     SQL
 
     create_post_actions(post_thanks) do |row|
-      post_id = post_id_from_imported_id(row[0])
+      if row[3] == "conversation_message"
+        post_id = post_id_from_imported_id("pm-#{row[0]}")
+      else
+        post_id = post_id_from_imported_id(row[0])
+      end
       user_id = user_id_from_imported_id(row[1])
 
       next if post_id.nil? || user_id.nil?
-      next if @imported_likes.add?([post_id, user_id]).nil?
 
       {
-        post_id: post_id_from_imported_id(row[0]),
-        user_id: user_id_from_imported_id(row[1]),
+        post_id: post_id,
+        user_id: user_id,
         post_action_type_id: 2,
         created_at: Time.zone.at(row[2])
       }

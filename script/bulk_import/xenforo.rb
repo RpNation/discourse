@@ -305,7 +305,7 @@ class BulkImport::XenForo < BulkImport::Base
         topic_id: topic_id,
         user_id: user_id_from_imported_id(row[2]),
         created_at: Time.zone.at(row[3]),
-        hidden: row[4] == 'visible',
+        hidden: row[4] != 'visible',
         raw: normalize_text(row[5]),
         like_count: row[6],
       }
@@ -365,7 +365,7 @@ class BulkImport::XenForo < BulkImport::Base
       key = [title, user_ids]
 
       next if @imported_topics.has_key?(key)
-      @imported_topics[key] = row[0]
+      @imported_topics[key] = "pm-#{row[0]}"
       {
         archetype: Archetype.private_message,
         imported_id: "pm-#{row[0]}",

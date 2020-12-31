@@ -644,7 +644,7 @@ class BulkImport::Base
 
       username = @mapped_usernames[imported_username] || imported_username
       post_number = post_number_from_imported_id(imported_postid)
-      topic_id = topic_id_from_imported_post_id(imported_post_id)
+      topic_id = topic_id_from_imported_post_id(imported_postid)
 
       if post_number && topic_id
         "\n[quote=\"#{username}, post:#{post_number}, topic:#{topic_id}\"]\n"

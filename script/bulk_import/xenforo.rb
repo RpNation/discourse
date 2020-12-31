@@ -19,7 +19,7 @@ class BulkImport::XenForo < BulkImport::Base
     username = ENV["DB_USERNAME"] || "rpn_user"
     password = ENV["DB_PASSWORD"]
     database = ENV["DB_NAME"] || "rpnation_xf"
-    charset  = ENV["DB_CHARSET"] || "utf8mb4_general_ci"
+    charset  = ENV["DB_CHARSET"] || "utf8"
 
     @html_entities = HTMLEntities.new
     @encoding = CHARSET_MAP[charset]
@@ -34,7 +34,7 @@ class BulkImport::XenForo < BulkImport::Base
     )
 
     @client.query_options.merge!(as: :array, cache_rows: false)
-    
+
   end
 
   def execute
@@ -116,7 +116,7 @@ class BulkImport::XenForo < BulkImport::Base
         moderator: row[9] == 1 || row[10] == 1,
         admin: row[11] == 1,
       }
-      if row[12]
+      if row[12] == 1
         u[:suspended_at] = Time.zone.at(row[13])
         u[:suspended_till] = row[14] > 0 ? Time.zone.at(row[14]) : SUSPENDED_TILL
       end

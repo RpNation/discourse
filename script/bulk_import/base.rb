@@ -145,6 +145,78 @@ class BulkImport::Base
     [map, ids]
   end
 
+  def imported_regular_topic_ids()
+    map = []
+    ids = []
+
+    @raw_connection.send_query("SELECT value, topic_id FROM topic_custom_fields tc INNER JOIN topics t ON(tc.topic_id = t.id) WHERE t.archetype = 'regular' AND tc.name = 'import_id'")
+    @raw_connection.set_single_row_mode
+
+    @raw_connection.get_result.stream_each do |row|
+      id = row["value"].to_i
+      ids << id
+      map[id] = row["topic_id"].to_i
+    end
+
+    @raw_connection.get_result
+
+    [map, ids]
+  end
+
+  def imported_pm_topic_ids()
+    map = []
+    ids = []
+
+    @raw_connection.send_query("SELECT value, topic_id FROM topic_custom_fields tc INNER JOIN topics t ON(tc.topic_id = t.id) WHERE t.archetype = 'private_message' AND tc.name = 'import_id'")
+    @raw_connection.set_single_row_mode
+
+    @raw_connection.get_result.stream_each do |row|
+      id = row["value"][3..].to_i
+      ids << id
+      map[id] = row["topic_id"].to_i
+    end
+
+    @raw_connection.get_result
+
+    [map, ids]
+  end
+
+  def imported_regular_post_ids()
+    map = []
+    ids = []
+
+    @raw_connection.send_query("SELECT value, post_id FROM post_custom_fields pc INNER JOIN posts p ON(pc.post_id = p.id) INNER JOIN topics t ON(p.topic_id = t.id) WHERE t.archetype = 'regular' AND pc.name = 'import_id'")
+    @raw_connection.set_single_row_mode
+
+    @raw_connection.get_result.stream_each do |row|
+      id = row["value"].to_i
+      ids << id
+      map[id] = row["post_id"].to_i
+    end
+
+    @raw_connection.get_result
+
+    [map, ids]
+  end
+
+  def imported_pm_post_ids()
+    map = []
+    ids = []
+
+    @raw_connection.send_query("SELECT value, post_id FROM post_custom_fields pc INNER JOIN posts p ON(pc.post_id = p.id) INNER JOIN topics t ON(p.topic_id = t.id) WHERE t.archetype = 'private_message' AND pc.name = 'import_id'")
+    @raw_connection.set_single_row_mode
+
+    @raw_connection.get_result.stream_each do |row|
+      id = row["value"][3..].to_i
+      ids << id
+      map[id] = row["post_id"].to_i
+    end
+
+    @raw_connection.get_result
+
+    [map, ids]
+  end
+
   def load_imported_ids
     puts "Loading imported group ids..."
     @groups, imported_group_ids = imported_ids("group")
@@ -159,14 +231,14 @@ class BulkImport::Base
     @last_imported_category_id = imported_category_ids.max || -1
 
     puts "Loading imported topic ids..."
-    @topics, imported_topic_ids = imported_ids("topic")
-    @last_imported_topic_id = imported_topic_ids.select { |id| id < PRIVATE_OFFSET }.max || -1
-    @last_imported_private_topic_id = imported_topic_ids.select { |id| id > PRIVATE_OFFSET }.max || (PRIVATE_OFFSET - 1)
+    @topics, imported_topic_ids = imported_regular_topic_ids()
+    @last_imported_topic_id = imported_topic_ids.max || -1
+    @last_imported_private_topic_id = imported_pm_topic_ids().max || -1
 
     puts "Loading imported post ids..."
-    @posts, imported_post_ids = imported_ids("post")
-    @last_imported_post_id = imported_post_ids.select { |id| id < PRIVATE_OFFSET }.max || -1
-    @last_imported_private_post_id = imported_post_ids.select { |id| id > PRIVATE_OFFSET }.max || (PRIVATE_OFFSET - 1)
+    @posts, imported_post_ids = imported_regular_post_ids()
+    @last_imported_post_id = imported_post_ids.max || -1
+    @last_imported_private_post_id = imported_pm_post_ids().max || -1
   end
 
   def last_id(klass)

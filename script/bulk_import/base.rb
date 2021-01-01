@@ -689,6 +689,8 @@ class BulkImport::Base
       raw = raw.encode("UTF-16be", invalid: :replace, replace: "?").encode('UTF-8')
     end
 
+    raw.gsub!(/\x00/, '')
+
     raw
   end
 

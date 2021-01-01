@@ -559,23 +559,23 @@ class BulkImport::Base
     raw.gsub!("\\t", "\t")
 
     # [HTML]...[/HTML]
-    raw.gsub!(/\[HTML\]/i, "\n\n```html\n")
-    raw.gsub!(/\[\/HTML\]/i, "\n```\n\n")
+    #raw.gsub!(/\[HTML\]/i, "\n\n```html\n")
+    #raw.gsub!(/\[\/HTML\]/i, "\n```\n\n")
 
     # [PHP]...[/PHP]
-    raw.gsub!(/\[PHP\]/i, "\n\n```php\n")
-    raw.gsub!(/\[\/PHP\]/i, "\n```\n\n")
+    #raw.gsub!(/\[PHP\]/i, "\n\n```php\n")
+    #raw.gsub!(/\[\/PHP\]/i, "\n```\n\n")
 
     # [HIGHLIGHT="..."]
-    raw.gsub!(/\[HIGHLIGHT="?(\w+)"?\]/i) { "\n\n```#{$1.downcase}\n" }
+    #raw.gsub!(/\[HIGHLIGHT="?(\w+)"?\]/i) { "\n\n```#{$1.downcase}\n" }
 
     # [CODE]...[/CODE]
     # [HIGHLIGHT]...[/HIGHLIGHT]
     raw.gsub!(/\[\/?CODE\]/i, "\n\n```\n\n")
-    raw.gsub!(/\[\/?HIGHLIGHT\]/i, "\n\n```\n\n")
+    #raw.gsub!(/\[\/?HIGHLIGHT\]/i, "\n\n```\n\n")
 
     # [SAMP]...[/SAMP]
-    raw.gsub!(/\[\/?SAMP\]/i, "`")
+    #raw.gsub!(/\[\/?SAMP\]/i, "`")
 
     # replace all chevrons with HTML entities
     # /!\ must be done /!\
@@ -593,12 +593,12 @@ class BulkImport::Base
     raw.gsub!(/\[\/?B\]/i, "**")
     raw.gsub!(/\[\/?U\]/i, "")
 
-    raw.gsub!(/\[\/?RED\]/i, "")
-    raw.gsub!(/\[\/?BLUE\]/i, "")
+    #raw.gsub!(/\[\/?RED\]/i, "")
+    #raw.gsub!(/\[\/?BLUE\]/i, "")
 
-    raw.gsub!(/\[AUTEUR\].+?\[\/AUTEUR\]/im, "")
-    raw.gsub!(/\[VOIRMSG\].+?\[\/VOIRMSG\]/im, "")
-    raw.gsub!(/\[PSEUDOID\].+?\[\/PSEUDOID\]/im, "")
+    #raw.gsub!(/\[AUTEUR\].+?\[\/AUTEUR\]/im, "")
+    #raw.gsub!(/\[VOIRMSG\].+?\[\/VOIRMSG\]/im, "")
+    #raw.gsub!(/\[PSEUDOID\].+?\[\/PSEUDOID\]/im, "")
 
     # [IMG]...[/IMG]
     raw.gsub!(/(?:\s*\[IMG\]\s*)+(.+?)(?:\s*\[\/IMG\]\s*)+/im) { "\n\n#{$1}\n\n" }
@@ -614,8 +614,8 @@ class BulkImport::Base
     # [EMAIL]...[/EMAIL]
     # [LEFT]...[/LEFT]
     raw.gsub!(/\[\/?URL\]/i, "")
-    raw.gsub!(/\[\/?MP3\]/i, "")
-    raw.gsub!(/\[\/?EMAIL\]/i, "")
+    #raw.gsub!(/\[\/?MP3\]/i, "")
+    #raw.gsub!(/\[\/?EMAIL\]/i, "")
     raw.gsub!(/\[\/?LEFT\]/i, "")
 
     # [FONT=blah] and [COLOR=blah]
@@ -662,12 +662,12 @@ class BulkImport::Base
     end
 
     # [YOUTUBE]<id>[/YOUTUBE]
-    raw.gsub!(/\[YOUTUBE\](.+?)\[\/YOUTUBE\]/i) { "\nhttps://www.youtube.com/watch?v=#{$1}\n" }
-    raw.gsub!(/\[DAILYMOTION\](.+?)\[\/DAILYMOTION\]/i) { "\nhttps://www.dailymotion.com/video/#{$1}\n" }
+    #raw.gsub!(/\[YOUTUBE\](.+?)\[\/YOUTUBE\]/i) { "\nhttps://www.youtube.com/watch?v=#{$1}\n" }
+    #raw.gsub!(/\[DAILYMOTION\](.+?)\[\/DAILYMOTION\]/i) { "\nhttps://www.dailymotion.com/video/#{$1}\n" }
 
     # [VIDEO=youtube;<id>]...[/VIDEO]
-    raw.gsub!(/\[VIDEO=YOUTUBE;([^\]]+)\].*?\[\/VIDEO\]/i) { "\nhttps://www.youtube.com/watch?v=#{$1}\n" }
-    raw.gsub!(/\[VIDEO=DAILYMOTION;([^\]]+)\].*?\[\/VIDEO\]/i) { "\nhttps://www.dailymotion.com/video/#{$1}\n" }
+    #raw.gsub!(/\[VIDEO=YOUTUBE;([^\]]+)\].*?\[\/VIDEO\]/i) { "\nhttps://www.youtube.com/watch?v=#{$1}\n" }
+    #raw.gsub!(/\[VIDEO=DAILYMOTION;([^\]]+)\].*?\[\/VIDEO\]/i) { "\nhttps://www.dailymotion.com/video/#{$1}\n" }
 
     # [SPOILER=Some hidden stuff]SPOILER HERE!![/SPOILER]
     raw.gsub!(/\[SPOILER="?(.+?)"?\](.+?)\[\/SPOILER\]/im) { "\n#{$1}\n[spoiler]#{$2}[/spoiler]\n" }
@@ -684,6 +684,10 @@ class BulkImport::Base
     raw.gsub!(/\[\*\](.*?)\[\/\*:m\]/, '[li]\1[/li]')
     raw.gsub!(/\[\*\](.*?)\n/, '[li]\1[/li]')
     raw.gsub!(/\[\*=1\]/, '')
+
+    if ! raw.valid_encoding?
+      raw = raw.encode("UTF-16be", invalid: :replace, replace: "?").encode('UTF-8')
+    end
 
     raw
   end

@@ -52,7 +52,7 @@ class BulkImport::XenForo < BulkImport::Base
     #import_group_users
 
     import_user_emails
-    #import_user_stats
+    import_user_stats
 
     import_user_profiles
 
@@ -109,7 +109,6 @@ class BulkImport::XenForo < BulkImport::Base
         imported_id: row[0],
         username: normalize_text(row[1]),
         name: normalize_text(row[1]),
-        email: row[2],
         created_at: Time.zone.at(row[3]),
         date_of_birth: birthday,
         last_seen_at: row[7],

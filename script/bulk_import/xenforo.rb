@@ -324,6 +324,7 @@ class BulkImport::XenForo < BulkImport::Base
           FROM #{TABLE_PREFIX}reaction_content
          WHERE content_id > #{@last_imported_post_id}
          AND (content_type LIKE 'conversation_message' OR content_type LIKE 'post')
+         GROUP BY content_id, reaction_user_id
       ORDER BY content_id
     SQL
 

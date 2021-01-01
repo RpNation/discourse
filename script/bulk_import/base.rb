@@ -327,8 +327,16 @@ class BulkImport::Base
     @topics[id.to_i]
   end
 
+  def private_topic_id_from_imported_id(id)
+    @private_topics[id.to_i]
+  end
+
   def post_id_from_imported_id(id)
     @posts[id.to_i]
+  end
+
+  def private_post_id_from_imported_id(id)
+    @private_posts[id.to_i]
   end
 
   def post_number_from_imported_id(id)

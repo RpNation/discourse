@@ -356,7 +356,7 @@ class BulkImport::XenForo < BulkImport::Base
         SELECT c.message_id, m.title, m.user_id, m.recipients, m.start_date
           FROM #{TABLE_PREFIX}conversation_message c
           INNER JOIN #{TABLE_PREFIX}conversation_master m ON c.conversation_id = m.conversation_id
-         WHERE c.message_id > (#{@last_imported_private_topic_id})
+         WHERE c.message_id > (#{@last_imported_private_topic_id - PRIVATE_OFFSET})
       ORDER BY c.message_id
     SQL
 
@@ -366,10 +366,10 @@ class BulkImport::XenForo < BulkImport::Base
       key = [title, user_ids]
 
       next if @imported_topics.has_key?(key)
-      @imported_topics[key] = "pm-#{row[0]}"
+      @imported_topics[key] = row[0] + PRIVATE_OFFSET
       {
         archetype: Archetype.private_message,
-        imported_id: "pm-#{row[0]}",
+        imported_id: row[0] + PRIVATE_OFFSET,
         title: title,
         user_id: user_id_from_imported_id(row[2]),
         created_at: Time.zone.at(row[4]),
@@ -386,11 +386,11 @@ class BulkImport::XenForo < BulkImport::Base
         SELECT c.message_id, m.recipients
           FROM #{TABLE_PREFIX}conversation_message c
           INNER JOIN #{TABLE_PREFIX}conversation_master m ON c.conversation_id = m.conversation_id
-         WHERE c.message_id > (#{@last_imported_private_topic_id})
+         WHERE c.message_id > (#{@last_imported_private_topic_id - PRIVATE_OFFSET})
       ORDER BY c.message_id
     SQL
     ).each do |row|
-      next unless topic_id = private_topic_id_from_imported_id(row[0])
+      next unless topic_id = topic_id_from_imported_id(row[0] + PRIVATE_OFFSET)
       row[1].scan(/\"user_id\":(\d+)/).flatten.each do |id|
         next unless user_id = user_id_from_imported_id(id)
         allowed_users << [topic_id, user_id]
@@ -412,7 +412,7 @@ class BulkImport::XenForo < BulkImport::Base
         SELECT c.message_id, m.title, m.user_id, m.recipients, c.message_date, c.message
           FROM #{TABLE_PREFIX}conversation_message c
           INNER JOIN #{TABLE_PREFIX}conversation_master m ON c.conversation_id = m.conversation_id
-         WHERE c.message_id > #{@last_imported_private_post_id}
+         WHERE c.message_id > #{@last_imported_private_post_id - PRIVATE_OFFSET}
       ORDER BY c.message_id
     SQL
 
@@ -421,10 +421,10 @@ class BulkImport::XenForo < BulkImport::Base
       user_ids = [row[2], row[3].scan(/\"user_id\":(\d+)/)].flatten.map(&:to_i).sort
       key = [title, user_ids]
 
-      next unless topic_id = private_topic_id_from_imported_id(@imported_topics[key])
+      next unless topic_id = topic_id_from_imported_id(@imported_topics[key])
 
       {
-        imported_id: "pm-#{row[0]}",
+        imported_id: row[0] + PRIVATE_OFFSET,
         topic_id: topic_id,
         user_id: user_id_from_imported_id(row[2]),
         created_at: Time.zone.at(row[4]),

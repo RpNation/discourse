@@ -328,11 +328,7 @@ class BulkImport::XenForo < BulkImport::Base
     SQL
 
     create_post_actions(post_thanks) do |row|
-      if row[3] == "conversation_message"
-        post_id = post_id_from_imported_id("pm-#{row[0]}")
-      else
-        post_id = post_id_from_imported_id(row[0])
-      end
+      post_id = post_id_from_imported_id(row[0])
       user_id = user_id_from_imported_id(row[1])
 
       next if post_id.nil? || user_id.nil?

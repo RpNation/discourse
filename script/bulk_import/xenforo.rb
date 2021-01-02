@@ -405,7 +405,7 @@ class BulkImport::XenForo < BulkImport::Base
     puts "Importing private posts..."
 
     posts = mysql_stream <<-SQL
-        SELECT c.message_id, m.title, m.user_id, m.recipients, c.message_date, c.message
+        SELECT c.message_id, m.title, c.user_id, m.recipients, c.message_date, c.message
           FROM #{TABLE_PREFIX}conversation_message c
           INNER JOIN #{TABLE_PREFIX}conversation_master m ON c.conversation_id = m.conversation_id
          WHERE c.message_id > #{@last_imported_private_post_id - PRIVATE_OFFSET}

@@ -558,11 +558,16 @@ class BulkImport::XenForo < BulkImport::Base
         if import_id.to_i >= 1000
           dir = (import_id.to_i / 1000).floor().to_s
         end
+
         photo_filename = AVATAR_DIR + '/h/' + dir + "/" + import_id + ".jpg"
 
         if !File.exists?(photo_filename)
-          puts "Path to avatar file not found! Skipping. #{photo_filename}"
-          next
+          photo_filename = AVATAR_DIR + '/o/' + dir + "/" + import_id + ".jpg"
+
+          if !File.exists?(photo_filename)
+            puts "Path to avatar file not found! Skipping. #{photo_filename}"
+            next
+          end
         end
 
         print "."

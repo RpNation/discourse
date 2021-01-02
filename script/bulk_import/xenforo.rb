@@ -556,7 +556,7 @@ class BulkImport::XenForo < BulkImport::Base
         import_id = u.custom_fields["import_id"]
         dir = '0'
         if import_id.to_i >= 1000
-          dir = import_id[0]
+          dir = (import_id.to_i / 1000).floor().to_s
         end
         photo_filename = AVATAR_DIR + '/h/' + dir + "/" + import_id + ".jpg"
 

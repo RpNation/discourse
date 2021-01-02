@@ -546,29 +546,28 @@ class BulkImport::XenForo < BulkImport::Base
   end
 
   def import_avatars
-    if AVATAR_DIR && File.exists?(AVATAR_DIR)
+
+    if AVATAR_DIR && File.exists?(AVATAR_DIR + '/h')
       puts "", "importing user avatars"
 
-      RateLimiter.disable
-      start = Time.now
-      count = 0
+      User.find_each do |u|
+        next unless u.custom_fields["import_id"]
 
-      Dir.foreach(AVATAR_DIR) do |item|
-        print "\r%7d - %6d/sec" % [count, count.to_f / (Time.now - start)]
+        import_id = u.custom_fields["import_id"]
+        dir = '0'
+        if import_id.to_i >= 1000
+          dir = import_id[0]
+        end
+        photo_filename = AVATAR_DIR + '/h/' + dir + "/" + import_id + ".jpg"
 
-        next if item == ('.') || item == ('..') || item == ('.DS_Store')
-        next unless item =~ /avatar(\d+)_(\d).gif/
-        scan = item.scan(/avatar(\d+)_(\d).gif/)
-        next unless scan[0][0].present?
-        u = UserCustomField.find_by(name: "import_id", value: scan[0][0]).try(:user)
-        next unless u.present?
-        # raise "User not found for id #{user_id}" if user.blank?
+        if !File.exists?(photo_filename)
+          puts "Path to avatar file not found! Skipping. #{photo_filename}"
+          next
+        end
 
-        photo_real_filename = File.join(AVATAR_DIR, item)
-        puts "#{photo_real_filename} not found" unless File.exists?(photo_real_filename)
+        print "."
 
-        upload = create_upload(u.id, photo_real_filename, File.basename(photo_real_filename))
-        count += 1
+        upload = create_upload(u.id, photo_filename, File.basename(photo_filename))
         if upload.persisted?
           u.import_mode = false
           u.create_user_avatar
@@ -579,9 +578,6 @@ class BulkImport::XenForo < BulkImport::Base
           puts "Error: Upload did not persist for #{u.username} #{photo_real_filename}!"
         end
       end
-
-      puts "", "imported #{count} avatars..."
-      RateLimiter.enable
     end
   end
 

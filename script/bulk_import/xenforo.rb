@@ -68,7 +68,7 @@ class BulkImport::XenForo < BulkImport::Base
 
     #create_permalink_file
     #import_attachments
-    #import_avatars
+    import_avatars
   end
 
   def import_groups

@@ -349,11 +349,10 @@ class BulkImport::XenForo < BulkImport::Base
     @imported_topics = {}
 
     topics = mysql_stream <<-SQL
-        SELECT c.message_id, m.title, m.user_id, m.recipients, m.start_date
-          FROM #{TABLE_PREFIX}conversation_message c
-          INNER JOIN #{TABLE_PREFIX}conversation_master m ON c.conversation_id = m.conversation_id
-         WHERE c.message_id > (#{@last_imported_private_topic_id - PRIVATE_OFFSET})
-      ORDER BY c.message_id
+        SELECT m.conversation_id, m.title, m.user_id, m.recipients, m.start_date
+          FROM #{TABLE_PREFIX}conversation_master m
+         WHERE m.conversation_id > (#{@last_imported_private_topic_id - PRIVATE_OFFSET})
+      ORDER BY m.conversation_id
     SQL
 
     create_topics(topics) do |row|
@@ -379,11 +378,10 @@ class BulkImport::XenForo < BulkImport::Base
     allowed_users = Set.new
 
     mysql_stream(<<-SQL
-        SELECT c.message_id, m.recipients
-          FROM #{TABLE_PREFIX}conversation_message c
-          INNER JOIN #{TABLE_PREFIX}conversation_master m ON c.conversation_id = m.conversation_id
-         WHERE c.message_id > (#{@last_imported_private_topic_id - PRIVATE_OFFSET})
-      ORDER BY c.message_id
+        SELECT m.conversation_id, m.recipients
+          FROM #{TABLE_PREFIX}conversation_master m
+         WHERE m.conversation_id > (#{@last_imported_private_topic_id - PRIVATE_OFFSET})
+      ORDER BY m.conversation_id
     SQL
     ).each do |row|
       next unless topic_id = topic_id_from_imported_id(row[0] + PRIVATE_OFFSET)
@@ -405,7 +403,7 @@ class BulkImport::XenForo < BulkImport::Base
     puts "Importing private posts..."
 
     posts = mysql_stream <<-SQL
-        SELECT c.message_id, m.title, c.user_id, m.recipients, c.message_date, c.message
+        SELECT c.message_id, m.title, c.user_id, m.recipients, c.message_date, c.message, m.user_id
           FROM #{TABLE_PREFIX}conversation_message c
           INNER JOIN #{TABLE_PREFIX}conversation_master m ON c.conversation_id = m.conversation_id
          WHERE c.message_id > #{@last_imported_private_post_id - PRIVATE_OFFSET}
@@ -414,7 +412,7 @@ class BulkImport::XenForo < BulkImport::Base
 
     create_posts(posts) do |row|
       title = extract_pm_title(row[1])
-      user_ids = [row[2], row[3].scan(/\"user_id\":(\d+)/)].flatten.map(&:to_i).sort
+      user_ids = [row[6], row[3].scan(/\"user_id\":(\d+)/)].flatten.map(&:to_i).sort
       key = [title, user_ids]
 
       next unless topic_id = topic_id_from_imported_id(@imported_topics[key])

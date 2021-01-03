@@ -46,6 +46,9 @@ class BulkImport::XenForo < BulkImport::Base
     # SiteSetting.max_attachment_size_kb = 102400
     # SiteSetting.clean_up_uploads = false
     # SiteSetting.clean_orphan_uploads_grace_period_hours = 43200
+    SiteSetting.tagging_enabled = true
+    SiteSetting.max_tags_per_topic = 10
+    SiteSetting.max_tag_length = 100
 
     #import_groups
     import_users

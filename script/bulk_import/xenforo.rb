@@ -60,6 +60,8 @@ class BulkImport::XenForo < BulkImport::Base
     import_topics
     import_posts
 
+    import_tags
+
     import_private_topics
     import_topic_allowed_users
     import_private_posts
@@ -425,6 +427,32 @@ class BulkImport::XenForo < BulkImport::Base
         raw: normalize_text(row[5]),
       }
     end
+  end
+
+  def import_topic_tags
+    puts "Importing topic tags..."
+
+    tag_mapping = {}
+
+    mysql_query("SELECT t.tag_id AS ID, t.tag AS Name FROM #{TABLE_PREFIX}tag t").each do |row|
+      tag_name = DiscourseTagging.clean_tag(row['Name'])
+      tag = Tag.find_by_name(tag_name) || Tag.create(name: tag_name)
+      tag_mapping[row['ID']] = tag.id
+    end
+
+    topic_tags = mysql_stream <<-SQL
+        SELECT tag_id, content_id FROM #{TABLE_PREFIX}tag_content
+        WHERE content_type LIKE 'thread'
+    SQL
+
+    create_topic_tags(topics) do |row|
+
+      next unless topic_id = topic_id_from_imported_id(row[1])
+
+      {
+        tag_id: tag_mapping[row[0]],
+        topic_id: topic_id
+      }
   end
 
   def create_permalink_file

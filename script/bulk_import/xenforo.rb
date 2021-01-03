@@ -274,9 +274,14 @@ class BulkImport::XenForo < BulkImport::Base
     create_topics(topics) do |row|
       created_at = Time.zone.at(row[5])
 
+      topic_title = normalize_text(row[1])
+      if topic_title == ""
+        topic_title = "You can't just have a topic with an empty title"
+      end
+
       t = {
         imported_id: row[0],
-        title: normalize_text(row[1]),
+        title: topic_title,
         category_id: category_id_from_imported_id(row[2]),
         user_id: user_id_from_imported_id(row[3]),
         closed: row[4] == 0,
@@ -456,6 +461,7 @@ class BulkImport::XenForo < BulkImport::Base
         tag_id: tag_mapping[row[0]],
         topic_id: topic_id
       }
+    end
   end
 
   def create_permalink_file

@@ -451,6 +451,7 @@ class BulkImport::XenForo < BulkImport::Base
     topic_tags = mysql_stream <<-SQL
         SELECT tag_id, content_id FROM #{TABLE_PREFIX}tag_content
         WHERE content_type LIKE 'thread'
+        AND tag_id IN(SELECT tag_id FROM #{TABLE_PREFIX}tag)
     SQL
 
     create_topic_tags(topic_tags) do |row|

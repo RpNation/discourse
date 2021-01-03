@@ -333,6 +333,11 @@ class BulkImport::Base
     topic_id tag_id created_at updated_at
   }
 
+  USER_ACTION_COLUMNS ||= %i{
+    action_type user_id target_topic_id target_post_id target_user_id
+    acting_user_id created_at updated_at
+  }
+
   def create_groups(rows, &block)
     create_records(rows, "group", GROUP_COLUMNS, &block)
   end
@@ -379,6 +384,9 @@ class BulkImport::Base
   end
   def create_topic_tags(rows, &block)
     create_records(rows, "topic_tag", TOPIC_TAG_COLUMNS, &block)
+  end
+  def create_user_actions(rows, &block)
+    create_records(rows, "user_action", USER_ACTION_COLUMNS, &block)
   end
 
   def process_group(group)
@@ -550,6 +558,15 @@ class BulkImport::Base
     topic_tag[:created_at] = NOW
     topic_tag[:updated_at] = NOW
     topic_tag
+  end
+
+  def process_user_action(user_action)
+    user_action[:target_topic_id] ||= nil
+    user_action[:target_post_id] ||= nil
+    user_action[:target_user_id] ||= nil
+    user_action[:created_at] ||= NOW
+    user_action[:updated_at] ||= NOW
+    user_action
   end
 
   def process_raw(original_raw)

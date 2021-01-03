@@ -351,6 +351,21 @@ class BulkImport::XenForo < BulkImport::Base
         created_at: Time.zone.at(row[2])
       }
     end
+
+    create_user_actions(post_thanks) do |row|
+      post_id = post_id_from_imported_id(row[0])
+      user_id = user_id_from_imported_id(row[1])
+
+      next if post_id.nil? || user_id.nil?
+
+      {
+        target_post_id: post_id,
+        action_user_id: user_id,
+        action_type: 1,
+        created_at: Time.zone.at(row[2]),
+        updated_at: Time.zone.at(row[2])
+      }
+    end
   end
 
   def import_private_topics

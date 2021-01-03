@@ -453,7 +453,7 @@ class BulkImport::XenForo < BulkImport::Base
         WHERE content_type LIKE 'thread'
     SQL
 
-    create_topic_tags(topics) do |row|
+    create_topic_tags(topic_tags) do |row|
 
       next unless topic_id = topic_id_from_imported_id(row[1])
 

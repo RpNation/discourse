@@ -72,7 +72,7 @@ class BulkImport::XenForo < BulkImport::Base
     import_likes
 
     #create_permalink_file
-    #import_attachments
+    import_attachments
     import_avatars
   end
 
@@ -533,10 +533,10 @@ class BulkImport::XenForo < BulkImport::Base
 
   # find the uploaded file information from the db
   def find_upload(post, attachment_id)
-    sql = "SELECT a.attachmentid attachment_id, a.userid user_id, a.filename filename,
-                  a.filedata filedata, a.extension extension
-             FROM #{TABLE_PREFIX}attachment a
-            WHERE a.attachmentid = #{attachment_id}"
+    sql = "SELECT a.attachment_id, a.data_id, d.filename, d.file_hash, d.user_id
+		    FROM #{TABLE_PREFIX}attachment AS a
+		    INNER JOIN #{TABLE_PREFIX}attachment_data d ON a.data_id = d.data_id
+		    WHERE attachment_id = #{attachment_id}"
     results = mysql_query(sql)
 
     unless row = results.first
@@ -545,10 +545,14 @@ class BulkImport::XenForo < BulkImport::Base
     end
 
     attachment_id = row[0]
-    user_id = row[1]
+    user_id = row[4]
     db_filename = row[2]
+    data_id = row[1]
+    file_hash = row[3]
 
-    filename = File.join(ATTACHMENT_DIR, user_id.to_s.split('').join('/'), "#{attachment_id}.attach")
+    current_filename = "#{data_id}-#{file_hash}.data"
+
+    filename = File.join(ATTACHMENT_DIR + "/#{data_id / 1000}/#{current_filename}")
     real_filename = db_filename
     real_filename.prepend SecureRandom.hex if real_filename[0] == '.'
 
@@ -579,10 +583,8 @@ class BulkImport::XenForo < BulkImport::Base
     current_count = 0
 
     total_count = mysql_query(<<-SQL
-      SELECT COUNT(p.postid) count
-        FROM #{TABLE_PREFIX}post p
-        JOIN #{TABLE_PREFIX}thread t ON t.threadid = p.threadid
-       WHERE t.firstpostid <> p.postid
+      SELECT COUNT(*) count
+        FROM #{TABLE_PREFIX}attachment a
     SQL
     ).first[0].to_i
 
@@ -591,7 +593,7 @@ class BulkImport::XenForo < BulkImport::Base
 
     attachment_regex = /\[attach[^\]]*\](\d+)\[\/attach\]/i
 
-    Post.find_each do |post|
+    Post.where("LOWER(raw) LIKE '%attach%'").find_each do |post|
       current_count += 1
       print_status current_count, total_count
 
@@ -611,7 +613,7 @@ class BulkImport::XenForo < BulkImport::Base
       end
 
       if new_raw != post.raw
-        PostRevisor.new(post).revise!(post.user, { raw: new_raw }, bypass_bump: true, edit_reason: 'Import attachments from vBulletin')
+        PostRevisor.new(post).revise!(post.user, { raw: new_raw }, bypass_bump: true, edit_reason: 'Import attachments from xenForo')
       end
 
       success_count += 1

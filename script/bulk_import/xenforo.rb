@@ -60,7 +60,7 @@ class BulkImport::XenForo < BulkImport::Base
     import_topics
     import_posts
 
-    import_tags
+    import_topic_tags
 
     import_private_topics
     import_topic_allowed_users

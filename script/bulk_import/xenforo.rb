@@ -443,9 +443,9 @@ class BulkImport::XenForo < BulkImport::Base
     tag_mapping = {}
 
     mysql_query("SELECT t.tag_id AS ID, t.tag AS Name FROM #{TABLE_PREFIX}tag t").each do |row|
-      tag_name = DiscourseTagging.clean_tag(row['Name'])
+      tag_name = DiscourseTagging.clean_tag(row[1])
       tag = Tag.find_by_name(tag_name) || Tag.create(name: tag_name)
-      tag_mapping[row['ID']] = tag.id
+      tag_mapping[row[0]] = tag.id
     end
 
     topic_tags = mysql_stream <<-SQL

@@ -441,11 +441,18 @@ class BulkImport::XenForo < BulkImport::Base
     puts "Importing topic tags..."
 
     tag_mapping = {}
+    prefix_mapping = {}
 
     mysql_query("SELECT t.tag_id AS ID, t.tag AS Name FROM #{TABLE_PREFIX}tag t").each do |row|
       tag_name = DiscourseTagging.clean_tag(row[1])
       tag = Tag.find_by_name(tag_name) || Tag.create(name: tag_name)
       tag_mapping[row[0]] = tag.id
+    end
+
+    mysql_query("SELECT CAST(TRIM(SUBSTRING_INDEX(phr.title, '.', -1)) AS UNSIGNED) AS prefix_id, phr.phrase_text FROM #{TABLE_PREFIX}phrase phr WHERE phr.title LIKE 'thread_prefix.%' ").each do |row|
+      tag_name = DiscourseTagging.clean_tag(row[1])
+      tag = Tag.find_by_name(tag_name) || Tag.create(name: tag_name)
+      prefix_mapping[row[0]] = tag.id
     end
 
     topic_tags = mysql_stream <<-SQL
@@ -460,6 +467,22 @@ class BulkImport::XenForo < BulkImport::Base
 
       {
         tag_id: tag_mapping[row[0]],
+        topic_id: topic_id
+      }
+    end
+
+    topic_prefixes = mysql_stream <<-SQL
+        SELECT t.prefix_id, t.thread_id FROM #{TABLE_PREFIX}thread t
+        INNER JOIN #{TABLE_PREFIX}phrase phr ON(t.prefix_id = CAST(TRIM(SUBSTRING_INDEX(phr.title, '.', -1)) AS UNSIGNED))
+        WHERE phr.title LIKE 'thread_prefix.%'
+    SQL
+
+    create_topic_tags(topic_prefixes) do |row|
+
+      next unless topic_id = topic_id_from_imported_id(row[1])
+
+      {
+        tag_id: prefix_mapping[row[0]],
         topic_id: topic_id
       }
     end

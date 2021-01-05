@@ -71,6 +71,16 @@ class BulkImport::XenForo < BulkImport::Base
 
     import_likes
 
+    # Discard massive tracking arrays
+    # These only take up memory at this point
+
+    @topics = {}
+    @posts = {}
+    @private_topics = {}
+    @private_posts = {}
+    @post_number_by_post_id = {}
+    @topic_id_by_post_id = {}
+
     #create_permalink_file
     import_attachments
     import_avatars
@@ -609,10 +619,12 @@ class BulkImport::XenForo < BulkImport::Base
           # should we strip invalid attach tags?
         end
 
+        next unless upload.sha1
+
         html_for_upload(upload, filename)
       end
 
-      if new_raw != post.raw
+      if new_raw != post.raw && post.topic
         PostRevisor.new(post).revise!(post.user, { raw: new_raw }, bypass_bump: true, edit_reason: 'Import attachments from xenForo')
       end
 

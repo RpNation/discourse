@@ -29,6 +29,7 @@ class BulkImport::Base
   NOW ||= "now()"
   PRIVATE_OFFSET ||= 2**30
   TABLE_PREFIX = "xf_"
+  ATTACHMENT_DIR ||= ENV['ATTACHMENT_DIR'] || '/shared/import/data/attachments'
 
   # rubocop:disable Layout/HashAlignment
 

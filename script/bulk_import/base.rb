@@ -28,6 +28,7 @@ class BulkImport::Base
 
   NOW ||= "now()"
   PRIVATE_OFFSET ||= 2**30
+  TABLE_PREFIX = "xf_"
 
   # rubocop:disable Layout/HashAlignment
 

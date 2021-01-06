@@ -82,6 +82,7 @@ class BulkImport::Base
     @html_entities = HTMLEntities.new
     @encoding = CHARSET_MAP[charset]
     @bbcode_to_md = true if use_bbcode_to_md?
+    @attachments = {}
 
     @markdown = Redcarpet::Markdown.new(
       Redcarpet::Render::HTML.new(hard_wrap: true),
@@ -720,20 +721,22 @@ class BulkImport::Base
     ids.merge(s.scan(attachment_regex).map { |x| x[0].to_i })
     ids.each do |id|
       next unless id
-      sql = "SELECT a.attachment_id, a.data_id, d.filename, d.file_hash, d.user_id
-  		    FROM #{TABLE_PREFIX}attachment AS a
-  		    INNER JOIN #{TABLE_PREFIX}attachment_data d ON a.data_id = d.data_id
-  		    WHERE attachment_id = #{id}"
-      results = mysql_query(sql)
-      if results.size < 1
+      #sql = "SELECT a.attachment_id, a.data_id, d.filename, d.file_hash, d.user_id
+  		#    FROM #{TABLE_PREFIX}attachment AS a
+  		#    INNER JOIN #{TABLE_PREFIX}attachment_data d ON a.data_id = d.data_id
+  		#    WHERE attachment_id = #{id}"
+
+      lookup = @attachments.find { |a| a[0] == id}
+      #results = mysql_query(sql)
+      unless lookup
         # Strip attachment
         s.gsub!(attachment_regex, '')
         STDERR.puts "Attachment id #{id} not found in source database. Stripping."
         next
       end
-      original_filename = results.first['filename']
-      result = results.first
-      upload = import_xf_attachment(result['data_id'], result['file_hash'], result['user_id'], original_filename)
+      original_filename = lookup[2]
+      #result = results.first
+      upload = import_xf_attachment(lookup[1], lookup[3], lookup[4], original_filename)
       next unless upload
       if upload.present? && upload.persisted?
         s.gsub!(attachment_regex, html_for_upload(upload, original_filename))
@@ -745,19 +748,19 @@ class BulkImport::Base
   end
 
   def import_xf_attachment(data_id, file_hash, owner_id, original_filename)
-  current_filename = "#{data_id}-#{file_hash}.data"
-  path = Pathname.new(ATTACHMENT_DIR + "/#{data_id / 1000}/#{current_filename}")
-  new_path = path.dirname + original_filename
-  upload = nil
-  if File.exist? path
-    FileUtils.cp path, new_path
-    upload = @uploader.create_upload owner_id, new_path, original_filename
-    FileUtils.rm new_path
-  else
-    STDERR.puts "Could not find file #{path}. Skipping attachment id #{data_id}"
+    current_filename = "#{data_id}-#{file_hash}.data"
+    path = Pathname.new(ATTACHMENT_DIR + "/#{data_id / 1000}/#{current_filename}")
+    new_path = path.dirname + original_filename
+    upload = nil
+    if File.exist? path
+      FileUtils.cp path, new_path
+      upload = @uploader.create_upload owner_id, new_path, original_filename
+      FileUtils.rm new_path
+    else
+      STDERR.puts "Could not find file #{path}. Skipping attachment id #{data_id}"
+    end
+    upload
   end
-  upload
-end
 
   def create_records(rows, name, columns)
     start = Time.now

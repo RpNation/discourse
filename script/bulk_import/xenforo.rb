@@ -309,6 +309,13 @@ class BulkImport::XenForo < BulkImport::Base
   def import_posts
     puts "Importing posts..."
 
+    @attachments = mysql_query(<<-SQL
+      SELECT a.attachment_id, a.data_id, d.filename, d.file_hash, d.user_id
+          FROM #{TABLE_PREFIX}attachment AS a
+          INNER JOIN #{TABLE_PREFIX}attachment_data d ON a.data_id = d.data_id
+    SQL
+    ).to_a
+
     posts = mysql_stream <<-SQL
         SELECT p.post_id, p.thread_id, p.user_id, p.post_date, p.message_state, p.message, p.reaction_score
 

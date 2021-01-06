@@ -633,17 +633,17 @@ class BulkImport::Base
     raw.gsub!(/\[\/?URL\]/i, "")
     #raw.gsub!(/\[\/?MP3\]/i, "")
     #raw.gsub!(/\[\/?EMAIL\]/i, "")
-    raw.gsub!(/\[\/?LEFT\]/i, "")
+    #raw.gsub!(/\[\/?LEFT\]/i, "")
 
     # [FONT=blah] and [COLOR=blah]
-    raw.gsub!(/\[FONT=.*?\](.*?)\[\/FONT\]/im, "\\1")
-    raw.gsub!(/\[COLOR=.*?\](.*?)\[\/COLOR\]/im, "\\1")
+    #raw.gsub!(/\[FONT=.*?\](.*?)\[\/FONT\]/im, "\\1")
+    #raw.gsub!(/\[COLOR=.*?\](.*?)\[\/COLOR\]/im, "\\1")
 
     raw.gsub!(/\[SIZE=.*?\](.*?)\[\/SIZE\]/im, "\\1")
     raw.gsub!(/\[H=.*?\](.*?)\[\/H\]/im, "\\1")
 
     # [CENTER]...[/CENTER]
-    raw.gsub!(/\[CENTER\](.*?)\[\/CENTER\]/im, "\\1")
+    #raw.gsub!(/\[CENTER\](.*?)\[\/CENTER\]/im, "\\1")
 
     # [INDENT]...[/INDENT]
     raw.gsub!(/\[INDENT\](.*?)\[\/INDENT\]/im, "\\1")
@@ -664,8 +664,8 @@ class BulkImport::Base
     # }
 
     # [QUOTE=<username>;<postid>]
-    raw.gsub!(/\[QUOTE=([^;\]]+);(\d+)\]/i) do
-      imported_username, imported_postid = $1, $2
+    raw.gsub!(/\[quote="(\w+), post: (\d*), member: (\d*)"\]/i) do
+      imported_username, imported_postid, imported_userid = $1, $2, $3
 
       username = @mapped_usernames[imported_username] || imported_username
       post_number = post_number_from_imported_id(imported_postid)
@@ -708,8 +708,55 @@ class BulkImport::Base
 
     raw.gsub!(/\x00/, '')
 
+    raw = process_xf_attachment(raw)
+
     raw
   end
+
+  def process_xf_attachment(s)
+    attachment_regex = /\[attach[^\]]*\](\d+)\[\/attach\]/i
+    ids = Set.new
+    ids.merge(s.scan(attachment_regex).map { |x| x[0].to_i })
+    ids.each do |id|
+      next unless id
+      sql = "SELECT a.attachment_id, a.data_id, d.filename, d.file_hash, d.user_id
+  		    FROM #{TABLE_PREFIX}attachment AS a
+  		    INNER JOIN #{TABLE_PREFIX}attachment_data d ON a.data_id = d.data_id
+  		    WHERE attachment_id = #{id}"
+      results = mysql_query(sql)
+      if results.size < 1
+        # Strip attachment
+        s.gsub!(attachment_regex, '')
+        STDERR.puts "Attachment id #{id} not found in source database. Stripping."
+        next
+      end
+      original_filename = results.first['filename']
+      result = results.first
+      upload = import_xf_attachment(result['data_id'], result['file_hash'], result['user_id'], original_filename)
+      next unless upload
+      if upload.present? && upload.persisted?
+        s.gsub!(attachment_regex, html_for_upload(upload, original_filename))
+      else
+        STDERR.puts "Could not find upload: #{upload.id}. Skipping attachment id #{id}"
+      end
+    end
+    s
+  end
+
+  def import_xf_attachment(data_id, file_hash, owner_id, original_filename)
+  current_filename = "#{data_id}-#{file_hash}.data"
+  path = Pathname.new(ATTACHMENT_DIR + "/#{data_id / 1000}/#{current_filename}")
+  new_path = path.dirname + original_filename
+  upload = nil
+  if File.exist? path
+    FileUtils.cp path, new_path
+    upload = @uploader.create_upload owner_id, new_path, original_filename
+    FileUtils.rm new_path
+  else
+    STDERR.puts "Could not find file #{path}. Skipping attachment id #{data_id}"
+  end
+  upload
+end
 
   def create_records(rows, name, columns)
     start = Time.now

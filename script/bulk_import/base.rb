@@ -653,7 +653,7 @@ class BulkImport::Base
     raw.gsub!(/\[TD="?.*?"?\](.*?)\[\/TD\]/im, "\\1")
 
     # [QUOTE]...[/QUOTE]
-    raw.gsub!(/\[QUOTE="([^\]]+)"\]/i) { "[QUOTE=#{$1}]" }
+    #raw.gsub!(/\[QUOTE="([^\]]+)"\]/i) { "[QUOTE=#{$1}]" }
 
     # Nested Quotes
     raw.gsub!(/(\[\/?QUOTE.*?\])/mi) { |q| "\n#{q}\n" }

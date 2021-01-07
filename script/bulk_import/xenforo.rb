@@ -122,7 +122,7 @@ class BulkImport::XenForo < BulkImport::Base
       birthday = Date.parse("#{row[4]}-#{row[5]}-#{row[6]}") rescue nil
       u = {
         imported_id: row[0],
-        username: normalize_text(row[1]),
+        username: normalize_text(row[1].gsub(/\s+/, "")),
         name: normalize_text(row[1]),
         created_at: Time.zone.at(row[3]),
         date_of_birth: birthday,
@@ -309,16 +309,8 @@ class BulkImport::XenForo < BulkImport::Base
   def import_posts
     puts "Importing posts..."
 
-    @attachments = mysql_query(<<-SQL
-      SELECT a.attachment_id, a.data_id, d.filename, d.file_hash, d.user_id
-          FROM #{TABLE_PREFIX}attachment AS a
-          INNER JOIN #{TABLE_PREFIX}attachment_data d ON a.data_id = d.data_id
-    SQL
-    ).to_a
-
     posts = mysql_stream <<-SQL
         SELECT p.post_id, p.thread_id, p.user_id, p.post_date, p.message_state, p.message, p.reaction_score
-
           FROM #{TABLE_PREFIX}post p
          WHERE post_id > #{@last_imported_post_id}
       ORDER BY post_id
@@ -610,7 +602,11 @@ class BulkImport::XenForo < BulkImport::Base
 
     attachment_regex = /\[attach[^\]]*\](\d+)\[\/attach\]/i
 
-    Post.where("LOWER(raw) LIKE '%attach%'").find_each do |post|
+    @raw_connection.send_query("SELECT id FROM posts WHERE LOWER(raw) LIKE '%attach%' ORDER BY id")
+    @raw_connection.set_single_row_mode
+
+    @raw_connection.get_result.stream_each do |row|
+      post = Post.find_by(id: row["id"])
       current_count += 1
       print_status current_count, total_count
 

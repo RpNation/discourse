@@ -28,8 +28,6 @@ class BulkImport::Base
 
   NOW ||= "now()"
   PRIVATE_OFFSET ||= 2**30
-  TABLE_PREFIX = "xf_"
-  ATTACHMENT_DIR ||= ENV['ATTACHMENT_DIR'] || '/shared/import/data/attachments'
 
   # rubocop:disable Layout/HashAlignment
 
@@ -83,7 +81,6 @@ class BulkImport::Base
     @html_entities = HTMLEntities.new
     @encoding = CHARSET_MAP[charset]
     @bbcode_to_md = true if use_bbcode_to_md?
-    @attachments = {}
 
     @markdown = Redcarpet::Markdown.new(
       Redcarpet::Render::HTML.new(hard_wrap: true),
@@ -636,17 +633,17 @@ class BulkImport::Base
     raw.gsub!(/\[\/?URL\]/i, "")
     #raw.gsub!(/\[\/?MP3\]/i, "")
     #raw.gsub!(/\[\/?EMAIL\]/i, "")
-    raw.gsub!(/\[\/?LEFT\]/i, "")
+    #raw.gsub!(/\[\/?LEFT\]/i, "")
 
     # [FONT=blah] and [COLOR=blah]
-    raw.gsub!(/\[FONT=.*?\](.*?)\[\/FONT\]/im, "\\1")
-    raw.gsub!(/\[COLOR=.*?\](.*?)\[\/COLOR\]/im, "\\1")
+    #raw.gsub!(/\[FONT=.*?\](.*?)\[\/FONT\]/im, "\\1")
+    #raw.gsub!(/\[COLOR=.*?\](.*?)\[\/COLOR\]/im, "\\1")
 
     raw.gsub!(/\[SIZE=.*?\](.*?)\[\/SIZE\]/im, "\\1")
     raw.gsub!(/\[H=.*?\](.*?)\[\/H\]/im, "\\1")
 
     # [CENTER]...[/CENTER]
-    raw.gsub!(/\[CENTER\](.*?)\[\/CENTER\]/im, "\\1")
+    #raw.gsub!(/\[CENTER\](.*?)\[\/CENTER\]/im, "\\1")
 
     # [INDENT]...[/INDENT]
     raw.gsub!(/\[INDENT\](.*?)\[\/INDENT\]/im, "\\1")
@@ -667,8 +664,8 @@ class BulkImport::Base
     # }
 
     # [QUOTE=<username>;<postid>]
-    raw.gsub!(/\[QUOTE=([^;\]]+);(\d+)\]/i) do
-      imported_username, imported_postid = $1, $2
+    raw.gsub!(/\[quote="(\w+), post: (\d*), member: (\d*)"\]/i) do
+      imported_username, imported_postid, imported_userid = $1, $2, $3
 
       username = @mapped_usernames[imported_username] || imported_username
       post_number = post_number_from_imported_id(imported_postid)
@@ -714,56 +711,6 @@ class BulkImport::Base
     raw
   end
 
-<<<<<<< HEAD
-  def process_xf_attachment(s)
-    attachment_regex = /\[attach[^\]]*\](\d+)\[\/attach\]/i
-    ids = Set.new
-    ids.merge(s.scan(attachment_regex).map { |x| x[0].to_i })
-    ids.each do |id|
-      next unless id
-      #sql = "SELECT a.attachment_id, a.data_id, d.filename, d.file_hash, d.user_id
-  		#    FROM #{TABLE_PREFIX}attachment AS a
-  		#    INNER JOIN #{TABLE_PREFIX}attachment_data d ON a.data_id = d.data_id
-  		#    WHERE attachment_id = #{id}"
-
-      lookup = @attachments.find { |a| a[0] == id}
-      #results = mysql_query(sql)
-      unless lookup
-        # Strip attachment
-        s.gsub!(attachment_regex, '')
-        STDERR.puts "Attachment id #{id} not found in source database. Stripping."
-        next
-      end
-      original_filename = lookup[2]
-      #result = results.first
-      upload = import_xf_attachment(lookup[1], lookup[3], lookup[4], original_filename)
-      next unless upload
-      if upload.present? && upload.persisted?
-        s.gsub!(attachment_regex, html_for_upload(upload, original_filename))
-      else
-        STDERR.puts "Could not find upload: #{upload.id}. Skipping attachment id #{id}"
-      end
-    end
-    s
-  end
-
-  def import_xf_attachment(data_id, file_hash, owner_id, original_filename)
-    current_filename = "#{data_id}-#{file_hash}.data"
-    path = Pathname.new(ATTACHMENT_DIR + "/#{data_id / 1000}/#{current_filename}")
-    new_path = path.dirname + original_filename
-    upload = nil
-    if File.exist? path
-      FileUtils.cp path, new_path
-      upload = @uploader.create_upload owner_id, new_path, original_filename
-      FileUtils.rm new_path
-    else
-      STDERR.puts "Could not find file #{path}. Skipping attachment id #{data_id}"
-    end
-    upload
-  end
-
-=======
->>>>>>> parent of b87cc68191... Refactor attachment code and other fixes
   def create_records(rows, name, columns)
     start = Time.now
     imported_ids = []

@@ -636,17 +636,17 @@ class BulkImport::Base
     raw.gsub!(/\[\/?URL\]/i, "")
     #raw.gsub!(/\[\/?MP3\]/i, "")
     #raw.gsub!(/\[\/?EMAIL\]/i, "")
-    #raw.gsub!(/\[\/?LEFT\]/i, "")
+    raw.gsub!(/\[\/?LEFT\]/i, "")
 
     # [FONT=blah] and [COLOR=blah]
-    #raw.gsub!(/\[FONT=.*?\](.*?)\[\/FONT\]/im, "\\1")
-    #raw.gsub!(/\[COLOR=.*?\](.*?)\[\/COLOR\]/im, "\\1")
+    raw.gsub!(/\[FONT=.*?\](.*?)\[\/FONT\]/im, "\\1")
+    raw.gsub!(/\[COLOR=.*?\](.*?)\[\/COLOR\]/im, "\\1")
 
     raw.gsub!(/\[SIZE=.*?\](.*?)\[\/SIZE\]/im, "\\1")
     raw.gsub!(/\[H=.*?\](.*?)\[\/H\]/im, "\\1")
 
     # [CENTER]...[/CENTER]
-    #raw.gsub!(/\[CENTER\](.*?)\[\/CENTER\]/im, "\\1")
+    raw.gsub!(/\[CENTER\](.*?)\[\/CENTER\]/im, "\\1")
 
     # [INDENT]...[/INDENT]
     raw.gsub!(/\[INDENT\](.*?)\[\/INDENT\]/im, "\\1")
@@ -667,8 +667,8 @@ class BulkImport::Base
     # }
 
     # [QUOTE=<username>;<postid>]
-    raw.gsub!(/\[quote="(\w+), post: (\d*), member: (\d*)"\]/i) do
-      imported_username, imported_postid, imported_userid = $1, $2, $3
+    raw.gsub!(/\[QUOTE=([^;\]]+);(\d+)\]/i) do
+      imported_username, imported_postid = $1, $2
 
       username = @mapped_usernames[imported_username] || imported_username
       post_number = post_number_from_imported_id(imported_postid)
@@ -711,11 +711,10 @@ class BulkImport::Base
 
     raw.gsub!(/\x00/, '')
 
-    raw = process_xf_attachment(raw)
-
     raw
   end
 
+<<<<<<< HEAD
   def process_xf_attachment(s)
     attachment_regex = /\[attach[^\]]*\](\d+)\[\/attach\]/i
     ids = Set.new
@@ -763,6 +762,8 @@ class BulkImport::Base
     upload
   end
 
+=======
+>>>>>>> parent of b87cc68191... Refactor attachment code and other fixes
   def create_records(rows, name, columns)
     start = Time.now
     imported_ids = []

@@ -82,7 +82,7 @@ class BulkImport::XenForo < BulkImport::Base
     @topic_id_by_post_id = {}
 
     #create_permalink_file
-    #import_attachments
+    import_attachments
     import_avatars
   end
 
@@ -122,7 +122,7 @@ class BulkImport::XenForo < BulkImport::Base
       birthday = Date.parse("#{row[4]}-#{row[5]}-#{row[6]}") rescue nil
       u = {
         imported_id: row[0],
-        username: normalize_text(row[1].gsub(/\s+/, "")),
+        username: normalize_text(row[1]),
         name: normalize_text(row[1]),
         created_at: Time.zone.at(row[3]),
         date_of_birth: birthday,
@@ -610,11 +610,7 @@ class BulkImport::XenForo < BulkImport::Base
 
     attachment_regex = /\[attach[^\]]*\](\d+)\[\/attach\]/i
 
-    @raw_connection.send_query("SELECT id FROM posts WHERE LOWER(raw) LIKE '%attach%' ORDER BY id")
-    @raw_connection.set_single_row_mode
-
-    @raw_connection.get_result.stream_each do |row|
-      post = Post.find_by(id: row["id"])
+    Post.where("LOWER(raw) LIKE '%attach%'").find_each do |post|
       current_count += 1
       print_status current_count, total_count
 

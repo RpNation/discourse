@@ -362,7 +362,7 @@ class BulkImport::XenForo < BulkImport::Base
     end
 
     post_thanks = mysql_stream <<-SQL
-        SELECT content_id, reaction_user_id, reaction_date, content_type
+        SELECT content_id, reaction_user_id, reaction_date, content_type, content_user_id
           FROM #{TABLE_PREFIX}reaction_content
          WHERE content_id > #{@last_imported_post_id}
          AND (content_type LIKE 'conversation_message' OR content_type LIKE 'post')
@@ -373,12 +373,14 @@ class BulkImport::XenForo < BulkImport::Base
     create_user_actions(post_thanks) do |row|
       post_id = post_id_from_imported_id(row[0])
       user_id = user_id_from_imported_id(row[1])
+      actor = user_id_from_imported_id(row[4])
 
       next if post_id.nil? || user_id.nil?
 
       {
         target_post_id: post_id,
-        action_user_id: user_id,
+        user_id: actor,
+        target_user_id: user_id,
         action_type: 1,
         created_at: Time.zone.at(row[2]),
         updated_at: Time.zone.at(row[2])

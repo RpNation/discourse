@@ -602,11 +602,11 @@ class BulkImport::XenForo < BulkImport::Base
     RateLimiter.disable
     current_count = 0
 
-    total_count = mysql_query(<<-SQL
-      SELECT COUNT(*) count
-        FROM #{TABLE_PREFIX}attachment a
-    SQL
-    ).first[0].to_i
+    #total_count = mysql_query(<<-SQL
+    #  SELECT COUNT(*) count
+    #    FROM #{TABLE_PREFIX}attachment a
+    #SQL
+    #).first[0].to_i
 
     success_count = 0
     fail_count = 0
@@ -615,6 +615,8 @@ class BulkImport::XenForo < BulkImport::Base
 
     @raw_connection.send_query("SELECT id FROM posts WHERE LOWER(raw) LIKE '%attach%' ORDER BY id")
     @raw_connection.set_single_row_mode
+
+    total_count = @raw_connection.get_result.ntuples()
 
     @raw_connection.get_result.stream_each do |row|
       post = Post.find_by(id: row["id"])

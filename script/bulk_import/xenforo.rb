@@ -613,7 +613,7 @@ class BulkImport::XenForo < BulkImport::Base
 
     attachment_regex = /\[attach[^\]]*\](\d+)\[\/attach\]/i
 
-    @raw_connection.send_query("SELECT id FROM posts WHERE LOWER(raw) LIKE '%attach%' ORDER BY id")
+    @raw_connection.send_query("SELECT id FROM posts WHERE LOWER(raw) LIKE '%attach%' ORDER BY id DESC")
     total_count = @raw_connection.get_result.ntuples()
     @raw_connection.set_single_row_mode
 

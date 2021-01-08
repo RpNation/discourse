@@ -641,7 +641,7 @@ class BulkImport::XenForo < BulkImport::Base
       end
 
       if new_raw != post.raw && post.topic
-        PostRevisor.new(post).revise!(post.user, { raw: new_raw }, bypass_bump: true, edit_reason: 'Import attachments from xenForo')
+        PostRevisor.new(post).revise!(post.user, { raw: new_raw }, bypass_bump: true, edit_reason: 'Import attachments from xenForo', skip_validations: true, skip_revision: true)
       end
 
       success_count += 1

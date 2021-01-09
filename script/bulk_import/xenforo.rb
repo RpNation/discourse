@@ -460,6 +460,11 @@ class BulkImport::XenForo < BulkImport::Base
     SQL
 
     create_posts(posts) do |row|
+      if row[1]
+        title = row[1]
+      else
+        title = "Message Title Missing!"
+      end
       user_ids = [row[6], row[3].scan(/\"user_id\":(\d+)/)].flatten.map(&:to_i).sort
       key = [title, user_ids]
 

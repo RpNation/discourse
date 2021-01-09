@@ -285,7 +285,7 @@ class BulkImport::XenForo < BulkImport::Base
       created_at = Time.zone.at(row[5])
 
       topic_title = normalize_text(row[1])
-      if topic_title == ""
+      if topic_title.nil? || topic_title == ""
         topic_title = "You can't just have a topic with an empty title"
       end
 
@@ -375,7 +375,7 @@ class BulkImport::XenForo < BulkImport::Base
       user_id = user_id_from_imported_id(row[1])
       actor = user_id_from_imported_id(row[4])
 
-      next if post_id.nil? || user_id.nil?
+      next if post_id.nil? || user_id.nil? || actor.nil?
 
       {
         target_post_id: post_id,
@@ -401,7 +401,11 @@ class BulkImport::XenForo < BulkImport::Base
     SQL
 
     create_topics(topics) do |row|
-      title = extract_pm_title(row[1])
+      if row[1]
+        title = row[1]
+      else
+        title = "Message Title Missing!"
+      end
       user_ids = [row[2], row[3].scan(/\"user_id\":(\d+)/)].flatten.map(&:to_i).sort
       key = [title, user_ids]
 
@@ -456,7 +460,6 @@ class BulkImport::XenForo < BulkImport::Base
     SQL
 
     create_posts(posts) do |row|
-      title = extract_pm_title(row[1])
       user_ids = [row[6], row[3].scan(/\"user_id\":(\d+)/)].flatten.map(&:to_i).sort
       key = [title, user_ids]
 
@@ -613,8 +616,10 @@ class BulkImport::XenForo < BulkImport::Base
 
     attachment_regex = /\[attach[^\]]*\](\d+)\[\/attach\]/i
 
+    result = @raw_connection.exec("SELECT COUNT(*) count FROM posts WHERE LOWER(raw) LIKE '%attach%' ORDER BY id DESC")
+    total_count = result[0]['count']
+
     @raw_connection.send_query("SELECT id FROM posts WHERE LOWER(raw) LIKE '%attach%' ORDER BY id DESC")
-    total_count = @raw_connection.get_result.ntuples()
     @raw_connection.set_single_row_mode
 
     @raw_connection.get_result.stream_each do |row|

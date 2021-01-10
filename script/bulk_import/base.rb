@@ -664,8 +664,8 @@ class BulkImport::Base
     # }
 
     # [QUOTE=<username>;<postid>]
-    raw.gsub!(/\[quote="(\w+), post: (\d*), member: (\d*)"\]/i) do
-      imported_username, imported_postid, imported_userid = $1, $2, $3
+    raw.gsub!(/\[quote="([\w\s]+), post: (\d*), member: (\d*)"\]/i) do
+      imported_username, imported_postid, imported_userid = $1.gsub(/\s+/, ""), $2, $3
 
       username = @mapped_usernames[imported_username] || imported_username
       post_number = post_number_from_imported_id(imported_postid)

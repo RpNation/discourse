@@ -23,6 +23,7 @@ class BulkImport::XenForo < BulkImport::Base
 
     @html_entities = HTMLEntities.new
     @encoding = CHARSET_MAP[charset]
+    @raw_connection = PG.connect(dbname: db[:database], port: db[:port], user: "postgres")
 
     @client = Mysql2::Client.new(
       host: host,
@@ -699,6 +700,116 @@ class BulkImport::XenForo < BulkImport::Base
         end
       end
     end
+  end
+
+  USER_ACTION_COLUMNS ||= %i{
+    action_type user_id target_topic_id target_post_id target_user_id
+    acting_user_id created_at updated_at
+  }
+
+  def create_user_actions(rows, &block)
+    create_records(rows, "user_action", USER_ACTION_COLUMNS, &block)
+  end
+
+  def process_user_action(user_action)
+    user_action[:target_topic_id] ||= nil
+    user_action[:target_post_id] ||= nil
+    user_action[:target_user_id] ||= nil
+    user_action[:created_at] ||= NOW
+    user_action[:updated_at] ||= NOW
+    user_action
+  end
+
+  def process_raw(original_raw)
+    raw = original_raw.dup
+    # fix whitespaces
+    raw.gsub!(/(\\r)?\\n/, "\n")
+    raw.gsub!("\\t", "\t")
+
+    # [CODE]...[/CODE]
+    raw.gsub!(/\[\/?CODE\]/i, "\n\n```\n\n")
+
+    # replace all chevrons with HTML entities
+    # /!\ must be done /!\
+    #  - AFTER the "code" processing
+    #  - BEFORE the "quote" processing
+    raw.gsub!(/`([^`]+?)`/im) { "`" + $1.gsub("<", "\u2603") + "`" }
+    raw.gsub!("<", "&lt;")
+    raw.gsub!("\u2603", "<")
+
+    raw.gsub!(/`([^`]+?)`/im) { "`" + $1.gsub(">", "\u2603") + "`" }
+    raw.gsub!(">", "&gt;")
+    raw.gsub!("\u2603", ">")
+
+    raw.gsub!(/\[\/?I\]/i, "*")
+    raw.gsub!(/\[\/?B\]/i, "**")
+    raw.gsub!(/\[\/?U\]/i, "")
+
+    # [IMG]...[/IMG]
+    raw.gsub!(/(?:\s*\[IMG\]\s*)+(.+?)(?:\s*\[\/IMG\]\s*)+/im) { "\n\n#{$1}\n\n" }
+
+    # [IMG=url]
+    raw.gsub!(/\[IMG=([^\]]*)\]/im) { "\n\n#{$1}\n\n" }
+
+    # [URL=...]...[/URL]
+    raw.gsub!(/\[URL="?(.+?)"?\](.+?)\[\/URL\]/im) { "[#{$2.strip}](#{$1})" }
+
+    # [URL]...[/URL]
+    # [LEFT]...[/LEFT]
+    raw.gsub!(/\[\/?URL\]/i, "")
+    #raw.gsub!(/\[\/?LEFT\]/i, "")
+
+    raw.gsub!(/\[SIZE=.*?\](.*?)\[\/SIZE\]/im, "\\1")
+    raw.gsub!(/\[H=.*?\](.*?)\[\/H\]/im, "\\1")
+
+    # [INDENT]...[/INDENT]
+    raw.gsub!(/\[INDENT\](.*?)\[\/INDENT\]/im, "\\1")
+    raw.gsub!(/\[TABLE\](.*?)\[\/TABLE\]/im, "\\1")
+    raw.gsub!(/\[TR\](.*?)\[\/TR\]/im, "\\1")
+    raw.gsub!(/\[TD\](.*?)\[\/TD\]/im, "\\1")
+    raw.gsub!(/\[TD="?.*?"?\](.*?)\[\/TD\]/im, "\\1")
+
+    # Nested Quotes
+    raw.gsub!(/(\[\/?QUOTE.*?\])/mi) { |q| "\n#{q}\n" }
+
+    # [QUOTE=<username>;<postid>]
+    raw.gsub!(/\[quote="([\w\s]+), post: (\d*), member: (\d*)"\]/i) do
+      imported_username, imported_postid, imported_userid = $1.gsub(/\s+/, ""), $2, $3
+
+      username = @mapped_usernames[imported_username] || imported_username
+      post_number = post_number_from_imported_id(imported_postid)
+      topic_id = topic_id_from_imported_post_id(imported_postid)
+
+      if post_number && topic_id
+        "\n[quote=\"#{username}, post:#{post_number}, topic:#{topic_id}\"]\n"
+      else
+        "\n[quote=\"#{username}\"]\n"
+      end
+    end
+
+    # [SPOILER=Some hidden stuff]SPOILER HERE!![/SPOILER]
+    raw.gsub!(/\[SPOILER="?(.+?)"?\](.+?)\[\/SPOILER\]/im) { "\n#{$1}\n[spoiler]#{$2}[/spoiler]\n" }
+
+    # convert list tags to ul and list=1 tags to ol
+    # (basically, we're only missing list=a here...)
+    # (https://meta.discourse.org/t/phpbb-3-importer-old/17397)
+    raw.gsub!(/\[list\](.*?)\[\/list\]/im, '[ul]\1[/ul]')
+    raw.gsub!(/\[list=1\](.*?)\[\/list\]/im, '[ol]\1[/ol]')
+    raw.gsub!(/\[list\](.*?)\[\/list:u\]/im, '[ul]\1[/ul]')
+    raw.gsub!(/\[list=1\](.*?)\[\/list:o\]/im, '[ol]\1[/ol]')
+    # convert *-tags to li-tags so bbcode-to-md can do its magic on phpBB's lists:
+    raw.gsub!(/\[\*\]\n/, '')
+    raw.gsub!(/\[\*\](.*?)\[\/\*:m\]/, '[li]\1[/li]')
+    raw.gsub!(/\[\*\](.*?)\n/, '[li]\1[/li]')
+    raw.gsub!(/\[\*=1\]/, '')
+
+    if ! raw.valid_encoding?
+      raw = raw.encode("UTF-16be", invalid: :replace, replace: "?").encode('UTF-8')
+    end
+
+    raw.gsub!(/\x00/, '')
+
+    raw
   end
 
   def extract_pm_title(title)

@@ -76,7 +76,7 @@ class BulkImport::Base
     charset = ENV["DB_CHARSET"] || "utf8"
     db = ActiveRecord::Base.connection_config
     @encoder = PG::TextEncoder::CopyRow.new
-    @raw_connection = PG.connect(dbname: db[:database], port: db[:port], user: "postgres")
+    @raw_connection = PG.connect(dbname: db[:database], port: db[:port])
     @uploader = ImportScripts::Uploader.new
     @html_entities = HTMLEntities.new
     @encoding = CHARSET_MAP[charset]
@@ -253,16 +253,8 @@ class BulkImport::Base
     @topics[id.to_i]
   end
 
-  def private_topic_id_from_imported_id(id)
-    @private_topics[id.to_i]
-  end
-
   def post_id_from_imported_id(id)
     @posts[id.to_i]
-  end
-
-  def private_post_id_from_imported_id(id)
-    @private_posts[id.to_i]
   end
 
   def post_number_from_imported_id(id)
@@ -333,11 +325,6 @@ class BulkImport::Base
     topic_id tag_id created_at updated_at
   }
 
-  USER_ACTION_COLUMNS ||= %i{
-    action_type user_id target_topic_id target_post_id target_user_id
-    acting_user_id created_at updated_at
-  }
-
   def create_groups(rows, &block)
     create_records(rows, "group", GROUP_COLUMNS, &block)
   end
@@ -384,9 +371,6 @@ class BulkImport::Base
   end
   def create_topic_tags(rows, &block)
     create_records(rows, "topic_tag", TOPIC_TAG_COLUMNS, &block)
-  end
-  def create_user_actions(rows, &block)
-    create_records(rows, "user_action", USER_ACTION_COLUMNS, &block)
   end
 
   def process_group(group)
@@ -560,15 +544,6 @@ class BulkImport::Base
     topic_tag
   end
 
-  def process_user_action(user_action)
-    user_action[:target_topic_id] ||= nil
-    user_action[:target_post_id] ||= nil
-    user_action[:target_user_id] ||= nil
-    user_action[:created_at] ||= NOW
-    user_action[:updated_at] ||= NOW
-    user_action
-  end
-
   def process_raw(original_raw)
     raw = original_raw.dup
     # fix whitespaces
@@ -576,23 +551,23 @@ class BulkImport::Base
     raw.gsub!("\\t", "\t")
 
     # [HTML]...[/HTML]
-    #raw.gsub!(/\[HTML\]/i, "\n\n```html\n")
-    #raw.gsub!(/\[\/HTML\]/i, "\n```\n\n")
+    raw.gsub!(/\[HTML\]/i, "\n\n```html\n")
+    raw.gsub!(/\[\/HTML\]/i, "\n```\n\n")
 
     # [PHP]...[/PHP]
-    #raw.gsub!(/\[PHP\]/i, "\n\n```php\n")
-    #raw.gsub!(/\[\/PHP\]/i, "\n```\n\n")
+    raw.gsub!(/\[PHP\]/i, "\n\n```php\n")
+    raw.gsub!(/\[\/PHP\]/i, "\n```\n\n")
 
     # [HIGHLIGHT="..."]
-    #raw.gsub!(/\[HIGHLIGHT="?(\w+)"?\]/i) { "\n\n```#{$1.downcase}\n" }
+    raw.gsub!(/\[HIGHLIGHT="?(\w+)"?\]/i) { "\n\n```#{$1.downcase}\n" }
 
     # [CODE]...[/CODE]
     # [HIGHLIGHT]...[/HIGHLIGHT]
     raw.gsub!(/\[\/?CODE\]/i, "\n\n```\n\n")
-    #raw.gsub!(/\[\/?HIGHLIGHT\]/i, "\n\n```\n\n")
+    raw.gsub!(/\[\/?HIGHLIGHT\]/i, "\n\n```\n\n")
 
     # [SAMP]...[/SAMP]
-    #raw.gsub!(/\[\/?SAMP\]/i, "`")
+    raw.gsub!(/\[\/?SAMP\]/i, "`")
 
     # replace all chevrons with HTML entities
     # /!\ must be done /!\
@@ -610,12 +585,12 @@ class BulkImport::Base
     raw.gsub!(/\[\/?B\]/i, "**")
     raw.gsub!(/\[\/?U\]/i, "")
 
-    #raw.gsub!(/\[\/?RED\]/i, "")
-    #raw.gsub!(/\[\/?BLUE\]/i, "")
+    raw.gsub!(/\[\/?RED\]/i, "")
+    raw.gsub!(/\[\/?BLUE\]/i, "")
 
-    #raw.gsub!(/\[AUTEUR\].+?\[\/AUTEUR\]/im, "")
-    #raw.gsub!(/\[VOIRMSG\].+?\[\/VOIRMSG\]/im, "")
-    #raw.gsub!(/\[PSEUDOID\].+?\[\/PSEUDOID\]/im, "")
+    raw.gsub!(/\[AUTEUR\].+?\[\/AUTEUR\]/im, "")
+    raw.gsub!(/\[VOIRMSG\].+?\[\/VOIRMSG\]/im, "")
+    raw.gsub!(/\[PSEUDOID\].+?\[\/PSEUDOID\]/im, "")
 
     # [IMG]...[/IMG]
     raw.gsub!(/(?:\s*\[IMG\]\s*)+(.+?)(?:\s*\[\/IMG\]\s*)+/im) { "\n\n#{$1}\n\n" }
@@ -631,19 +606,19 @@ class BulkImport::Base
     # [EMAIL]...[/EMAIL]
     # [LEFT]...[/LEFT]
     raw.gsub!(/\[\/?URL\]/i, "")
-    #raw.gsub!(/\[\/?MP3\]/i, "")
-    #raw.gsub!(/\[\/?EMAIL\]/i, "")
-    #raw.gsub!(/\[\/?LEFT\]/i, "")
+    raw.gsub!(/\[\/?MP3\]/i, "")
+    raw.gsub!(/\[\/?EMAIL\]/i, "")
+    raw.gsub!(/\[\/?LEFT\]/i, "")
 
     # [FONT=blah] and [COLOR=blah]
-    #raw.gsub!(/\[FONT=.*?\](.*?)\[\/FONT\]/im, "\\1")
-    #raw.gsub!(/\[COLOR=.*?\](.*?)\[\/COLOR\]/im, "\\1")
+    raw.gsub!(/\[FONT=.*?\](.*?)\[\/FONT\]/im, "\\1")
+    raw.gsub!(/\[COLOR=.*?\](.*?)\[\/COLOR\]/im, "\\1")
 
     raw.gsub!(/\[SIZE=.*?\](.*?)\[\/SIZE\]/im, "\\1")
     raw.gsub!(/\[H=.*?\](.*?)\[\/H\]/im, "\\1")
 
     # [CENTER]...[/CENTER]
-    #raw.gsub!(/\[CENTER\](.*?)\[\/CENTER\]/im, "\\1")
+    raw.gsub!(/\[CENTER\](.*?)\[\/CENTER\]/im, "\\1")
 
     # [INDENT]...[/INDENT]
     raw.gsub!(/\[INDENT\](.*?)\[\/INDENT\]/im, "\\1")
@@ -653,7 +628,7 @@ class BulkImport::Base
     raw.gsub!(/\[TD="?.*?"?\](.*?)\[\/TD\]/im, "\\1")
 
     # [QUOTE]...[/QUOTE]
-    #raw.gsub!(/\[QUOTE="([^\]]+)"\]/i) { "[QUOTE=#{$1}]" }
+    raw.gsub!(/\[QUOTE="([^\]]+)"\]/i) { "[QUOTE=#{$1}]" }
 
     # Nested Quotes
     raw.gsub!(/(\[\/?QUOTE.*?\])/mi) { |q| "\n#{q}\n" }
@@ -664,8 +639,8 @@ class BulkImport::Base
     # }
 
     # [QUOTE=<username>;<postid>]
-    raw.gsub!(/\[quote="([\w\s]+), post: (\d*), member: (\d*)"\]/i) do
-      imported_username, imported_postid, imported_userid = $1.gsub(/\s+/, ""), $2, $3
+    raw.gsub!(/\[QUOTE=([^;\]]+);(\d+)\]/i) do
+      imported_username, imported_postid = $1, $2
 
       username = @mapped_usernames[imported_username] || imported_username
       post_number = post_number_from_imported_id(imported_postid)
@@ -679,12 +654,12 @@ class BulkImport::Base
     end
 
     # [YOUTUBE]<id>[/YOUTUBE]
-    #raw.gsub!(/\[YOUTUBE\](.+?)\[\/YOUTUBE\]/i) { "\nhttps://www.youtube.com/watch?v=#{$1}\n" }
-    #raw.gsub!(/\[DAILYMOTION\](.+?)\[\/DAILYMOTION\]/i) { "\nhttps://www.dailymotion.com/video/#{$1}\n" }
+    raw.gsub!(/\[YOUTUBE\](.+?)\[\/YOUTUBE\]/i) { "\nhttps://www.youtube.com/watch?v=#{$1}\n" }
+    raw.gsub!(/\[DAILYMOTION\](.+?)\[\/DAILYMOTION\]/i) { "\nhttps://www.dailymotion.com/video/#{$1}\n" }
 
     # [VIDEO=youtube;<id>]...[/VIDEO]
-    #raw.gsub!(/\[VIDEO=YOUTUBE;([^\]]+)\].*?\[\/VIDEO\]/i) { "\nhttps://www.youtube.com/watch?v=#{$1}\n" }
-    #raw.gsub!(/\[VIDEO=DAILYMOTION;([^\]]+)\].*?\[\/VIDEO\]/i) { "\nhttps://www.dailymotion.com/video/#{$1}\n" }
+    raw.gsub!(/\[VIDEO=YOUTUBE;([^\]]+)\].*?\[\/VIDEO\]/i) { "\nhttps://www.youtube.com/watch?v=#{$1}\n" }
+    raw.gsub!(/\[VIDEO=DAILYMOTION;([^\]]+)\].*?\[\/VIDEO\]/i) { "\nhttps://www.dailymotion.com/video/#{$1}\n" }
 
     # [SPOILER=Some hidden stuff]SPOILER HERE!![/SPOILER]
     raw.gsub!(/\[SPOILER="?(.+?)"?\](.+?)\[\/SPOILER\]/im) { "\n#{$1}\n[spoiler]#{$2}[/spoiler]\n" }
@@ -701,12 +676,6 @@ class BulkImport::Base
     raw.gsub!(/\[\*\](.*?)\[\/\*:m\]/, '[li]\1[/li]')
     raw.gsub!(/\[\*\](.*?)\n/, '[li]\1[/li]')
     raw.gsub!(/\[\*=1\]/, '')
-
-    if ! raw.valid_encoding?
-      raw = raw.encode("UTF-16be", invalid: :replace, replace: "?").encode('UTF-8')
-    end
-
-    raw.gsub!(/\x00/, '')
 
     raw
   end

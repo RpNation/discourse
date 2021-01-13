@@ -11,6 +11,7 @@ class BulkImport::XenForo < BulkImport::Base
   SUSPENDED_TILL ||= Date.new(3000, 1, 1)
   ATTACHMENT_DIR ||= ENV['ATTACHMENT_DIR'] || '/shared/import/data/attachments'
   AVATAR_DIR ||= ENV['AVATAR_DIR'] || '/shared/import/data/avatars'
+  ATTACHMENT_IMPORTERS = 4
 
   def initialize
     super
@@ -610,52 +611,68 @@ class BulkImport::XenForo < BulkImport::Base
 
     RateLimiter.disable
     current_count = 0
-
-    #total_count = mysql_query(<<-SQL
-    #  SELECT COUNT(*) count
-    #    FROM #{TABLE_PREFIX}attachment a
-    #SQL
-    #).first[0].to_i
-
     success_count = 0
     fail_count = 0
 
     attachment_regex = /\[attach[^\]]*\](\d+)\[\/attach\]/i
 
-    result = @raw_connection.exec("SELECT COUNT(*) count FROM posts WHERE LOWER(raw) LIKE '%attach%'")
-    total_count = result[0]['count']
+    mutex = Mutex.new
 
-    @raw_connection.send_query("SELECT id FROM posts WHERE LOWER(raw) LIKE '%attach%' ORDER BY id DESC")
-    @raw_connection.set_single_row_mode
+    threads = []
 
-    @raw_connection.get_result.stream_each do |row|
-      post = Post.find_by(id: row["id"])
-      current_count += 1
-      print_status current_count, total_count
-
-      new_raw = post.raw.dup
-      new_raw.gsub!(attachment_regex) do |s|
-        matches = attachment_regex.match(s)
-        attachment_id = matches[1]
-
-        upload, filename = find_upload(post, attachment_id)
-        unless upload
-          fail_count += 1
-          next
-          # should we strip invalid attach tags?
+    ATTACHMENT_IMPORTERS.times do |i|
+      threads << Thread.new {
+        total_count = 0
+        attachment_stream = 0
+        mutex.synchronize do
+          result = @raw_connection.exec("SELECT COUNT(*) count FROM posts WHERE LOWER(raw) LIKE '%attach%'")
+          total_count = result[0]['count']
         end
 
-        next unless upload.sha1
+        mutex.synchronize do
+          @raw_connection.send_query("SELECT id FROM posts WHERE LOWER(raw) LIKE '%attach%' ORDER BY id DESC")
+          @raw_connection.set_single_row_mode
+          attachment_stream = @raw_connection.get_result
+        end
 
-        html_for_upload(upload, filename)
-      end
+        attachment_stream.stream_each do |row|
+          post = Post.find_by(id: row["id"])
+          mutex.synchronize do
+            current_count += 1
+            print_status current_count, total_count
+          end
 
-      if new_raw != post.raw && post.topic
-        PostRevisor.new(post).revise!(post.user, { raw: new_raw }, bypass_bump: true, edit_reason: 'Import attachments from xenForo', skip_validations: true, skip_revision: true)
-      end
+          new_raw = post.raw.dup
+          new_raw.gsub!(attachment_regex) do |s|
+            matches = attachment_regex.match(s)
+            attachment_id = matches[1]
 
-      success_count += 1
+            upload, filename = find_upload(post, attachment_id)
+            unless upload
+              mutex.synchronize do
+                fail_count += 1
+              end
+              next
+            # should we strip invalid attach tags?
+            end
+
+            next unless upload.sha1
+
+            html_for_upload(upload, filename)
+          end
+
+          if new_raw != post.raw && post.topic
+            PostRevisor.new(post).revise!(post.user, { raw: new_raw }, bypass_bump: true, edit_reason: 'Import attachments from xenForo', skip_validations: true, skip_revision: true)
+          end
+
+          mutex.synchronize do
+            success_count += 1
+          end
+        end
+      }
     end
+
+    threads.each { |thr| thr.join }
 
     puts "", "imported #{success_count} attachments... failed: #{fail_count}."
     RateLimiter.enable
@@ -772,7 +789,7 @@ class BulkImport::XenForo < BulkImport::Base
     # Nested Quotes
     raw.gsub!(/(\[\/?QUOTE.*?\])/mi) { |q| "\n#{q}\n" }
 
-    # [QUOTE=<username>;<postid>]
+    # [QUOTE=<username>, <postid>, <userid>]
     raw.gsub!(/\[quote="([\w\s]+), post: (\d*), member: (\d*)"\]/i) do
       imported_username, imported_postid, imported_userid = $1.gsub(/\s+/, ""), $2, $3
 

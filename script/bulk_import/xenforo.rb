@@ -652,7 +652,9 @@ class BulkImport::XenForo < BulkImport::Base
             matches = attachment_regex.match(s)
             attachment_id = matches[1]
 
-            upload, filename = find_upload(post, attachment_id)
+            mutex.synchronize do
+              upload, filename = find_upload(post, attachment_id)
+            end
             unless upload
               mutex.synchronize do
                 fail_count += 1

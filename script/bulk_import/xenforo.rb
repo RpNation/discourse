@@ -374,7 +374,7 @@ class BulkImport::XenForo < BulkImport::Base
     create_user_actions(post_thanks) do |row|
       post_id = post_id_from_imported_id(row[0])
       user_id = user_id_from_imported_id(row[1])
-      actor = user_id_from_imported_id(row[4])
+      target = user_id_from_imported_id(row[4])
       if(row[3] == "post")
         topic_id = topic_id_from_imported_post_id(row[0])
       else
@@ -386,8 +386,9 @@ class BulkImport::XenForo < BulkImport::Base
       {
         target_post_id: post_id,
         target_topic_id: topic_id,
-        user_id: actor,
-        target_user_id: user_id,
+        user_id: target,
+        target_user_id: target,
+        acting_user_id: user_id,
         action_type: 1,
         created_at: Time.zone.at(row[2]),
         updated_at: Time.zone.at(row[2])

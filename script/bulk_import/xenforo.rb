@@ -434,7 +434,7 @@ class BulkImport::XenForo < BulkImport::Base
     allowed_users = Set.new
 
     mysql_stream(<<-SQL
-        SELECT m.conversation_id, m.recipients
+        SELECT m.conversation_id, m.recipients, m.user_id
           FROM #{TABLE_PREFIX}conversation_master m
          WHERE m.conversation_id > (#{@last_imported_private_topic_id - PRIVATE_OFFSET})
       ORDER BY m.conversation_id
@@ -445,6 +445,8 @@ class BulkImport::XenForo < BulkImport::Base
         next unless user_id = user_id_from_imported_id(id)
         allowed_users << [topic_id, user_id]
       end
+      next unless user_id = user_id_from_imported_id(row[2])
+      allowed_users << [topic_id, user_id]
     end
 
     create_topic_allowed_users(allowed_users) do |row|

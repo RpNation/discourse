@@ -632,15 +632,13 @@ class BulkImport::XenForo < BulkImport::Base
     threads = []
     db = ActiveRecord::Base.connection_config
 
+    total_count = @raw_connection.exec("SELECT COUNT(*) count FROM posts WHERE LOWER(raw) LIKE '%attach%'")[0]['count']
+
     ATTACHMENT_IMPORTERS.times do |i|
       threads << Thread.new {
         total_count = 0
         attachment_stream = 0
         db_connect = PG.connect(dbname: db[:database], port: db[:port], user: "postgres")
-        mutex.synchronize do
-          result = db_connect.exec("SELECT COUNT(*) count FROM posts WHERE LOWER(raw) LIKE '%attach%' AND MOD(id, #{ATTACHMENT_IMPORTERS}) = #{i}")
-          total_count = result[0]['count']
-        end
 
         mutex.synchronize do
           db_connect.send_query("SELECT id FROM posts WHERE LOWER(raw) LIKE '%attach%' AND MOD(id, #{ATTACHMENT_IMPORTERS}) = #{i} ORDER BY id DESC")

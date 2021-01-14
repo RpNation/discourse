@@ -625,8 +625,8 @@ class BulkImport::XenForo < BulkImport::Base
     attachment_regex = /\[attach[^\]]*\](\d+)\[\/attach\]/i
 
     mutex = Mutex.new
-
     threads = []
+    db = ActiveRecord::Base.connection_config
 
     ATTACHMENT_IMPORTERS.times do |i|
       threads << Thread.new {

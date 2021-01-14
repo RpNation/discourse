@@ -629,15 +629,16 @@ class BulkImport::XenForo < BulkImport::Base
       threads << Thread.new {
         total_count = 0
         attachment_stream = 0
+        db_connect = PG.connect(dbname: db[:database], port: db[:port], user: "postgres")
         mutex.synchronize do
-          result = @raw_connection.exec("SELECT COUNT(*) count FROM posts WHERE LOWER(raw) LIKE '%attach%' AND MOD(id, #{ATTACHMENT_IMPORTERS}) = #{i}")
+          result = db_connect.exec("SELECT COUNT(*) count FROM posts WHERE LOWER(raw) LIKE '%attach%' AND MOD(id, #{ATTACHMENT_IMPORTERS}) = #{i}")
           total_count = result[0]['count']
         end
 
         mutex.synchronize do
-          @raw_connection.send_query("SELECT id FROM posts WHERE LOWER(raw) LIKE '%attach%' AND MOD(id, #{ATTACHMENT_IMPORTERS}) = #{i} ORDER BY id DESC")
-          @raw_connection.set_single_row_mode
-          attachment_stream = @raw_connection.get_result
+          db_connect.send_query("SELECT id FROM posts WHERE LOWER(raw) LIKE '%attach%' AND MOD(id, #{ATTACHMENT_IMPORTERS}) = #{i} ORDER BY id DESC")
+          db_connect.set_single_row_mode
+          attachment_stream = db_connect.get_result
         end
 
         attachment_stream.stream_each do |row|
@@ -652,6 +653,8 @@ class BulkImport::XenForo < BulkImport::Base
             matches = attachment_regex.match(s)
             attachment_id = matches[1]
 
+            upload = nil
+            filename = nil
             mutex.synchronize do
               upload, filename = find_upload(post, attachment_id)
             end
@@ -735,6 +738,47 @@ class BulkImport::XenForo < BulkImport::Base
     create_records(rows, "user_action", USER_ACTION_COLUMNS, &block)
   end
 
+  def create_records(rows, name, columns)
+    start = Time.now
+    imported_ids = []
+    process_method_name = "process_#{name}"
+    sql = "COPY #{name.pluralize} (#{columns.map { |c| "\"#{c}\"" }.join(",")}) FROM STDIN"
+
+    @raw_connection.copy_data(sql, @encoder) do
+      rows.each do |row|
+        begin
+          next unless mapped = yield(row)
+          processed = send(process_method_name, mapped)
+          imported_ids << mapped[:imported_id] unless mapped[:imported_id].nil?
+          imported_ids |= mapped[:imported_ids] unless mapped[:imported_ids].nil?
+          @raw_connection.put_copy_data columns.map { |c| processed[c] }
+          print "\r%7d - %6d/sec" % [imported_ids.size, imported_ids.size.to_f / (Time.now - start)] if imported_ids.size % 5000 == 0
+        rescue => e
+          puts "\n"
+          puts "ERROR: #{e.message}"
+          puts e.backtrace.join("\n")
+        end
+      end
+    end
+
+    if imported_ids.size > 0
+      print "\r%7d - %6d/sec" % [imported_ids.size, imported_ids.size.to_f / (Time.now - start)]
+      puts
+    end
+
+    id_mapping_method_name = "#{name}_id_from_imported_id".freeze
+    return unless respond_to?(id_mapping_method_name)
+    create_custom_fields(name, "id", imported_ids) do |imported_id|
+      {
+        record_id: send(id_mapping_method_name, imported_id),
+        value: imported_id,
+      }
+    end
+  rescue => e
+    puts e.message
+    puts e.backtrace.join("\n")
+  end
+
   def process_user_action(user_action)
     user_action[:target_topic_id] ||= nil
     user_action[:target_post_id] ||= nil
@@ -742,6 +786,30 @@ class BulkImport::XenForo < BulkImport::Base
     user_action[:created_at] ||= NOW
     user_action[:updated_at] ||= NOW
     user_action
+  end
+
+  def process_post(post)
+    @posts[post[:imported_id].to_i] = post[:id] = @last_post_id += 1
+    post[:user_id] ||= Discourse::SYSTEM_USER_ID
+    post[:last_editor_id] = post[:user_id]
+    @highest_post_number_by_topic_id[post[:topic_id]] ||= 0
+    post[:post_number] = @highest_post_number_by_topic_id[post[:topic_id]] += 1
+    post[:sort_order] = post[:post_number]
+    @post_number_by_post_id[post[:id]] = post[:post_number]
+    @topic_id_by_post_id[post[:id]] = post[:topic_id]
+    post[:raw] = (post[:raw] || "").scrub.strip.presence || "<Empty imported post>"
+    post[:raw] = process_raw post[:raw]
+    if @bbcode_to_md
+      post[:raw] = post[:raw].bbcode_to_md(false, {}, :disable, :quote) rescue post[:raw]
+    end
+    post[:like_count] ||= 0
+    post[:cooked] = pre_cook post[:raw]
+    post[:hidden] ||= false
+    post[:word_count] = post[:raw].scan(/[[:word:]]+/).size
+    post[:created_at] ||= NOW
+    post[:last_version_at] = post[:created_at]
+    post[:updated_at] ||= post[:created_at]
+    post
   end
 
   def process_raw(original_raw)

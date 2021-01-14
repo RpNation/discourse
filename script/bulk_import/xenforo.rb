@@ -381,7 +381,7 @@ class BulkImport::XenForo < BulkImport::Base
         topic_id = topic_id_from_imported_post_id(row[0] + PRIVATE_OFFSET)
       end
 
-      next if post_id.nil? || user_id.nil? || actor.nil?
+      next if post_id.nil? || user_id.nil? || target.nil?
 
       {
         target_post_id: post_id,

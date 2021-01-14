@@ -630,12 +630,12 @@ class BulkImport::XenForo < BulkImport::Base
         total_count = 0
         attachment_stream = 0
         mutex.synchronize do
-          result = @raw_connection.exec("SELECT COUNT(*) count FROM posts WHERE LOWER(raw) LIKE '%attach%'")
+          result = @raw_connection.exec("SELECT COUNT(*) count FROM posts WHERE LOWER(raw) LIKE '%attach%' AND MOD(id, #{ATTACHMENT_IMPORTERS}) = #{i}")
           total_count = result[0]['count']
         end
 
         mutex.synchronize do
-          @raw_connection.send_query("SELECT id FROM posts WHERE LOWER(raw) LIKE '%attach%' ORDER BY id DESC")
+          @raw_connection.send_query("SELECT id FROM posts WHERE LOWER(raw) LIKE '%attach%' AND MOD(id, #{ATTACHMENT_IMPORTERS}) = #{i} ORDER BY id DESC")
           @raw_connection.set_single_row_mode
           attachment_stream = @raw_connection.get_result
         end

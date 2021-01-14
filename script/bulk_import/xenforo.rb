@@ -24,7 +24,6 @@ class BulkImport::XenForo < BulkImport::Base
 
     @html_entities = HTMLEntities.new
     @encoding = CHARSET_MAP[charset]
-    @raw_connection = PG.connect(dbname: db[:database], port: db[:port], user: "postgres")
 
     @client = Mysql2::Client.new(
       host: host,

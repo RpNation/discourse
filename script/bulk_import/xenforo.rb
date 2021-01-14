@@ -567,12 +567,15 @@ class BulkImport::XenForo < BulkImport::Base
   end
 
   # find the uploaded file information from the db
-  def find_upload(post, attachment_id)
-    sql = "SELECT a.attachment_id, a.data_id, d.filename, d.file_hash, d.user_id
+  def find_upload(post, attachment_id, mutex)
+
+    mutex.synchronize do
+      sql = "SELECT a.attachment_id, a.data_id, d.filename, d.file_hash, d.user_id
 		    FROM #{TABLE_PREFIX}attachment AS a
 		    INNER JOIN #{TABLE_PREFIX}attachment_data d ON a.data_id = d.data_id
 		    WHERE attachment_id = #{attachment_id}"
-    results = mysql_query(sql)
+      results = mysql_query(sql)
+    end
 
     unless row = results.first
       puts "Couldn't find attachment record for attachment_id = #{attachment_id} post.id = #{post.id}"
@@ -653,11 +656,7 @@ class BulkImport::XenForo < BulkImport::Base
             matches = attachment_regex.match(s)
             attachment_id = matches[1]
 
-            upload = nil
-            filename = nil
-            mutex.synchronize do
-              upload, filename = find_upload(post, attachment_id)
-            end
+            upload, filename = find_upload(post, attachment_id, mutex)
             unless upload
               mutex.synchronize do
                 fail_count += 1

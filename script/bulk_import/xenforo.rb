@@ -376,11 +376,17 @@ class BulkImport::XenForo < BulkImport::Base
       post_id = post_id_from_imported_id(row[0])
       user_id = user_id_from_imported_id(row[1])
       actor = user_id_from_imported_id(row[4])
+      if(row[3] == "post")
+        topic_id = topic_id_from_imported_post_id(row[0])
+      else
+        topic_id = topic_id_from_imported_post_id(row[0] + PRIVATE_OFFSET)
+      end
 
       next if post_id.nil? || user_id.nil? || actor.nil?
 
       {
         target_post_id: post_id,
+        target_topic_id: topic_id,
         user_id: actor,
         target_user_id: user_id,
         action_type: 1,

@@ -636,7 +636,6 @@ class BulkImport::XenForo < BulkImport::Base
 
     ATTACHMENT_IMPORTERS.times do |i|
       threads << Thread.new {
-        total_count = 0
         attachment_stream = 0
         db_connect = PG.connect(dbname: db[:database], port: db[:port], user: "postgres")
 
@@ -650,6 +649,7 @@ class BulkImport::XenForo < BulkImport::Base
           post = Post.find_by(id: row["id"])
           mutex.synchronize do
             current_count += 1
+            puts "Worker #{i}"
             print_status current_count, total_count
           end
 

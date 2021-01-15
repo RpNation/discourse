@@ -386,7 +386,7 @@ class BulkImport::XenForo < BulkImport::Base
       {
         target_post_id: post_id,
         target_topic_id: topic_id,
-        user_id: target,
+        user_id: user_id,
         target_user_id: target,
         acting_user_id: user_id,
         action_type: 1,

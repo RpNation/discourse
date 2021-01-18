@@ -851,7 +851,7 @@ class BulkImport::XenForo < BulkImport::Base
     # [USER]...[/USER]
     # [LEFT]...[/LEFT]
     raw.gsub!(/\[\/?URL\]/i, "")
-    raw.gsub!(/\[\/?USER\]/i, "")
+    raw.gsub!(/\[\/?USER(=[0-9]+)?\]/i, "")
     #raw.gsub!(/\[\/?LEFT\]/i, "")
 
     raw.gsub!(/\[SIZE=.*?\](.*?)\[\/SIZE\]/im, "\\1")

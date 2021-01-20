@@ -885,10 +885,10 @@ class BulkImport::XenForo < BulkImport::Base
 
     raw.gsub!(/\[quote="(.+), convMessage: (\d*), member: (\d*)"\]/i) do
       imported_username, imported_postid, imported_userid = $1, $2, $3
+      imported_postid = imported_postid.to_i
       #imported_username.gsub!(/\s+/, "")
 
       username = @mapped_usernames[imported_username] || imported_username
-      next unless imported_postid
       post_number = post_number_from_imported_id(imported_postid + PRIVATE_OFFSET)
       topic_id = topic_id_from_imported_post_id(imported_postid + PRIVATE_OFFSET)
 

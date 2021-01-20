@@ -868,13 +868,28 @@ class BulkImport::XenForo < BulkImport::Base
     raw.gsub!(/(\[\/?QUOTE.*?\])/mi) { |q| "\n#{q}\n" }
 
     # [QUOTE=<username>, <postid>, <userid>]
-    raw.gsub!(/\[quote="([\w\s]+), post: (\d*), member: (\d*)"\]/i) do
+    raw.gsub!(/\[quote="(.+), post: (\d*), member: (\d*)"\]/i) do
       imported_username, imported_postid, imported_userid = $1, $2, $3
       imported_username.gsub!(/\s+/, "")
 
       username = @mapped_usernames[imported_username] || imported_username
       post_number = post_number_from_imported_id(imported_postid)
       topic_id = topic_id_from_imported_post_id(imported_postid)
+
+      if post_number && topic_id
+        "\n[quote=\"#{username}, post:#{post_number}, topic:#{topic_id}\"]\n"
+      else
+        "\n[quote=\"#{username}\"]\n"
+      end
+    end
+
+    raw.gsub!(/\[quote="(.+), convMessage: (\d*), member: (\d*)"\]/i) do
+      imported_username, imported_postid, imported_userid = $1, $2, $3
+      imported_username.gsub!(/\s+/, "")
+
+      username = @mapped_usernames[imported_username] || imported_username
+      post_number = post_number_from_imported_id(imported_postid + PRIVATE_OFFSET)
+      topic_id = topic_id_from_imported_post_id(imported_postid + PRIVATE_OFFSET)
 
       if post_number && topic_id
         "\n[quote=\"#{username}, post:#{post_number}, topic:#{topic_id}\"]\n"

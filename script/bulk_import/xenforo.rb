@@ -573,13 +573,11 @@ class BulkImport::XenForo < BulkImport::Base
   def find_upload(post, attachment_id, mutex)
 
     results = nil
-    mutex.synchronize do
-      sql = "SELECT a.attachment_id, a.data_id, d.filename, d.file_hash, d.user_id
+    sql = "SELECT a.attachment_id, a.data_id, d.filename, d.file_hash, d.user_id
 		    FROM #{TABLE_PREFIX}attachment AS a
 		    INNER JOIN #{TABLE_PREFIX}attachment_data d ON a.data_id = d.data_id
 		    WHERE attachment_id = #{attachment_id}"
-      results = mysql_query(sql)
-    end
+    results = mysql_query(sql)
 
     unless row = results.first
       puts "Couldn't find attachment record for attachment_id = #{attachment_id} post.id = #{post.id}"
@@ -628,62 +626,39 @@ class BulkImport::XenForo < BulkImport::Base
 
     attachment_regex = /\[attach[^\]]*\](\d+)\[\/attach\]/i
 
-    mutex = Mutex.new
-    threads = []
-    db = ActiveRecord::Base.connection_config
-
     total_count = @raw_connection.exec("SELECT COUNT(*) count FROM posts WHERE LOWER(raw) LIKE '%attach%'")[0]['count']
 
-    ATTACHMENT_IMPORTERS.times do |i|
-      threads << Thread.new {
-        attachment_stream = 0
-        db_connect = PG.connect(dbname: db[:database], port: db[:port], user: "postgres")
+    @raw_connection.send_query("SELECT id FROM posts WHERE LOWER(raw) LIKE '%attach%' AND MOD(id, #{ATTACHMENT_IMPORTERS}) = #{i} ORDER BY id DESC")
+    @raw_connection.set_single_row_mode
 
-        mutex.synchronize do
-          db_connect.send_query("SELECT id FROM posts WHERE LOWER(raw) LIKE '%attach%' AND MOD(id, #{ATTACHMENT_IMPORTERS}) = #{i} ORDER BY id DESC")
-          db_connect.set_single_row_mode
-          attachment_stream = db_connect.get_result
-        end
+    @raw_connection.get_result.stream_each do |row|
+      post = Post.find_by(id: row["id"])
+      current_count += 1
+      print_status current_count, total_count
 
-        attachment_stream.stream_each do |row|
-          post = Post.find_by(id: row["id"])
-          mutex.synchronize do
-            current_count += 1
-            puts "Worker #{i}"
-            print_status current_count, total_count
-          end
+      new_raw = post.raw.dup
+      new_raw.gsub!(attachment_regex) do |s|
+        matches = attachment_regex.match(s)
+        attachment_id = matches[1]
 
-          new_raw = post.raw.dup
-          new_raw.gsub!(attachment_regex) do |s|
-            matches = attachment_regex.match(s)
-            attachment_id = matches[1]
-
-            upload, filename = find_upload(post, attachment_id, mutex)
-            unless upload
-              mutex.synchronize do
-                fail_count += 1
-              end
-              next
+        upload, filename = find_upload(post, attachment_id)
+        unless upload
+          fail_count += 1
+          next
             # should we strip invalid attach tags?
-            end
-
-            next unless upload.sha1
-
-            html_for_upload(upload, filename)
-          end
-
-          if new_raw != post.raw && post.topic
-            PostRevisor.new(post).revise!(post.user, { raw: new_raw }, bypass_bump: true, edit_reason: 'Import attachments from xenForo', skip_validations: true, skip_revision: true)
-          end
-
-          mutex.synchronize do
-            success_count += 1
-          end
         end
-      }
-    end
 
-    threads.each { |thr| thr.join }
+        next unless upload.sha1
+
+        html_for_upload(upload, filename)
+      end
+
+      if new_raw != post.raw && post.topic
+        PostRevisor.new(post).revise!(post.user, { raw: new_raw }, bypass_bump: true, edit_reason: 'Import attachments from xenForo', skip_validations: true, skip_revision: true)
+      end
+
+      success_count += 1
+    end
 
     puts "", "imported #{success_count} attachments... failed: #{fail_count}."
     RateLimiter.enable

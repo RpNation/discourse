@@ -628,7 +628,7 @@ class BulkImport::XenForo < BulkImport::Base
 
     total_count = @raw_connection.exec("SELECT COUNT(*) count FROM posts WHERE LOWER(raw) LIKE '%attach%'")[0]['count']
 
-    @raw_connection.send_query("SELECT id FROM posts WHERE LOWER(raw) LIKE '%attach%' AND MOD(id, #{ATTACHMENT_IMPORTERS}) = #{i} ORDER BY id DESC")
+    @raw_connection.send_query("SELECT id FROM posts WHERE LOWER(raw) LIKE '%attach%' ORDER BY id DESC")
     @raw_connection.set_single_row_mode
 
     @raw_connection.get_result.stream_each do |row|

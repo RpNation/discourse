@@ -570,7 +570,7 @@ class BulkImport::XenForo < BulkImport::Base
   end
 
   # find the uploaded file information from the db
-  def find_upload(post, attachment_id, mutex)
+  def find_upload(post, attachment_id)
 
     results = nil
     sql = "SELECT a.attachment_id, a.data_id, d.filename, d.file_hash, d.user_id

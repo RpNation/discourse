@@ -797,6 +797,8 @@ class BulkImport::XenForo < BulkImport::Base
     # [CODE]...[/CODE]
     raw.gsub!(/\[\/?CODE\]/i, "\n\n```\n\n")
 
+    raw.gsub!(/\[MEDIA=youtube\](.+?)\[\/MEDIA\]/i) { "\nhttps://www.youtube.com/watch?v=#{$1}\n" }
+
     # replace all chevrons with HTML entities
     # /!\ must be done /!\
     #  - AFTER the "code" processing

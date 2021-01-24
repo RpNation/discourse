@@ -50,9 +50,7 @@ class BulkImport::XenForo < BulkImport::Base
     SiteSetting.max_tags_per_topic = 10
     SiteSetting.max_tag_length = 100
 
-    #import_groups
     import_users
-    #import_group_users
 
     import_user_emails
     import_user_stats
@@ -71,6 +69,8 @@ class BulkImport::XenForo < BulkImport::Base
 
     import_likes
 
+    import_bookmarks
+
     # Discard massive tracking arrays
     # These only take up memory at this point
 
@@ -81,7 +81,6 @@ class BulkImport::XenForo < BulkImport::Base
     @post_number_by_post_id = {}
     @topic_id_by_post_id = {}
 
-    #create_permalink_file
     import_attachments
     import_avatars
   end
@@ -536,6 +535,31 @@ class BulkImport::XenForo < BulkImport::Base
       {
         tag_id: prefix_mapping[row[0]],
         topic_id: topic_id
+      }
+    end
+  end
+
+  def import_bookmarks
+    puts '', "Importing bookmarks...", ''
+
+    bookmarks = mysql_stream <<-SQL
+      SELECT bk.user_id, p.post_id, p.thread_id, bk.message FROM #{TABLE_PREFIX}bookmark_item bk
+      INNER JOIN #{TABLE_PREFIX}post p
+      ON(bk.content_id = p.post_id)
+      WHERE bk.content_type = 'post'
+    SQL
+
+    create_bookmarks(bookmarks) do |row|
+      user_id = user_id_from_imported_id(row[0])
+      post_id = post_id_from_imported_id(row[1])
+      topic_id = topic_id_from_imported_id(row[2])
+      name = row[3]
+
+      {
+        user_id: user_id,
+        post_id: post_id,
+        topic_id: topic_id,
+        name: name
       }
     end
   end

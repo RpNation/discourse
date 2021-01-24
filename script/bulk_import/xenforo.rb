@@ -543,7 +543,7 @@ class BulkImport::XenForo < BulkImport::Base
     puts '', "Importing bookmarks...", ''
 
     bookmarks = mysql_stream <<-SQL
-      SELECT bk.user_id, p.post_id, p.thread_id, bk.message FROM #{TABLE_PREFIX}bookmark_item bk
+      SELECT bk.user_id, p.post_id, p.thread_id, bk.message, bk.bookmark_date FROM #{TABLE_PREFIX}bookmark_item bk
       INNER JOIN #{TABLE_PREFIX}post p
       ON(bk.content_id = p.post_id)
       WHERE bk.content_type = 'post'
@@ -554,12 +554,14 @@ class BulkImport::XenForo < BulkImport::Base
       post_id = post_id_from_imported_id(row[1])
       topic_id = topic_id_from_imported_id(row[2])
       name = row[3]
+      created_at = row[4]
 
       {
         user_id: user_id,
         post_id: post_id,
         topic_id: topic_id,
-        name: name
+        name: name,
+        created_at: created_at
       }
     end
   end

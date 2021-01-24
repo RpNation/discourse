@@ -553,7 +553,6 @@ class BulkImport::Base
   end
 
   def process_bookmark(bookmark)
-    bookmark[:created_at] = NOW
     bookmark[:updated_at] = NOW
     bookmark
   end

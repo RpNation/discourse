@@ -122,7 +122,7 @@ class BulkImport::XenForo < BulkImport::Base
       birthday = Date.parse("#{row[4]}-#{row[5]}-#{row[6]}") rescue nil
       u = {
         imported_id: row[0],
-        username: normalize_text(row[1].gsub(/\s+/, "")),
+        username: normalize_text(row[1]),
         name: normalize_text(row[1]),
         created_at: Time.zone.at(row[3]),
         date_of_birth: birthday,

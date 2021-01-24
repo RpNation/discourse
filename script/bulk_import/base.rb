@@ -744,6 +744,7 @@ class BulkImport::Base
     name.scrub! if name.valid_encoding? == false
     return if name.blank?
     name = ActiveSupport::Inflector.transliterate(name)
+    name.gsub!(/\s+/, "")
     name.gsub!(/[^\w.-]+/, "_")
     name.gsub!(/^\W+/, "")
     name.gsub!(/[^A-Za-z0-9]+$/, "")

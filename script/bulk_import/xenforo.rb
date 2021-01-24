@@ -11,7 +11,6 @@ class BulkImport::XenForo < BulkImport::Base
   SUSPENDED_TILL ||= Date.new(3000, 1, 1)
   ATTACHMENT_DIR ||= ENV['ATTACHMENT_DIR'] || '/shared/import/data/attachments'
   AVATAR_DIR ||= ENV['AVATAR_DIR'] || '/shared/import/data/avatars'
-  ATTACHMENT_IMPORTERS = 4
 
   def initialize
     super

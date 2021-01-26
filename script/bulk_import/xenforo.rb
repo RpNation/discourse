@@ -735,8 +735,16 @@ class BulkImport::XenForo < BulkImport::Base
     acting_user_id created_at updated_at
   }
 
+  BOOKMARK_COLUMNS ||= %i{
+    user_id topic_id post_id name created_at updated_at
+  }
+
   def create_user_actions(rows, &block)
     create_records(rows, "user_action", USER_ACTION_COLUMNS, &block)
+  end
+
+  def create_bookmarks(rows, &block)
+    create_records(rows, "bookmark", BOOKMARK_COLUMNS, &block)
   end
 
   def create_records(rows, name, columns)
@@ -787,6 +795,11 @@ class BulkImport::XenForo < BulkImport::Base
     user_action[:created_at] ||= NOW
     user_action[:updated_at] ||= NOW
     user_action
+  end
+
+  def process_bookmark(bookmark)
+    bookmark[:updated_at] = NOW
+    bookmark
   end
 
   def process_post(post)

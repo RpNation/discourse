@@ -325,10 +325,6 @@ class BulkImport::Base
     topic_id tag_id created_at updated_at
   }
 
-  BOOKMARK_COLUMNS ||= %i{
-    user_id topic_id post_id name created_at updated_at
-  }
-
   def create_groups(rows, &block)
     create_records(rows, "group", GROUP_COLUMNS, &block)
   end
@@ -375,10 +371,6 @@ class BulkImport::Base
   end
   def create_topic_tags(rows, &block)
     create_records(rows, "topic_tag", TOPIC_TAG_COLUMNS, &block)
-  end
-
-  def create_bookmarks(rows, &block)
-    create_records(rows, "bookmark", BOOKMARK_COLUMNS, &block)
   end
 
   def process_group(group)
@@ -550,11 +542,6 @@ class BulkImport::Base
     topic_tag[:created_at] = NOW
     topic_tag[:updated_at] = NOW
     topic_tag
-  end
-
-  def process_bookmark(bookmark)
-    bookmark[:updated_at] = NOW
-    bookmark
   end
 
   def process_raw(original_raw)

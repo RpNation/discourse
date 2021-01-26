@@ -423,6 +423,7 @@ class BulkImport::XenForo < BulkImport::Base
         title: title,
         user_id: user_id_from_imported_id(row[2]),
         created_at: Time.zone.at(row[4]),
+        participant_count: user_ids.size(),
       }
     end
   end
@@ -739,12 +740,21 @@ class BulkImport::XenForo < BulkImport::Base
     user_id topic_id post_id name created_at updated_at
   }
 
+  TOPIC_COLUMNS ||= %i{
+    id archetype title fancy_title slug user_id last_post_user_id category_id
+    visible closed pinned_at views created_at bumped_at updated_at participant_count
+  }
+
   def create_user_actions(rows, &block)
     create_records(rows, "user_action", USER_ACTION_COLUMNS, &block)
   end
 
   def create_bookmarks(rows, &block)
     create_records(rows, "bookmark", BOOKMARK_COLUMNS, &block)
+  end
+
+  def create_topics(rows, &block)
+    create_records(rows, "topic", TOPIC_COLUMNS, &block)
   end
 
   def create_records(rows, name, columns)
@@ -800,6 +810,25 @@ class BulkImport::XenForo < BulkImport::Base
   def process_bookmark(bookmark)
     bookmark[:updated_at] = NOW
     bookmark
+  end
+
+  def process_topic(topic)
+    @topics[topic[:imported_id].to_i] = topic[:id] = @last_topic_id += 1
+    topic[:archetype] ||= Archetype.default
+    topic[:title] = topic[:title][0...255].scrub.strip
+    topic[:fancy_title] ||= pre_fancy(topic[:title])
+    topic[:slug] ||= Slug.ascii_generator(topic[:title])
+    topic[:user_id] ||= Discourse::SYSTEM_USER_ID
+    topic[:last_post_user_id] ||= topic[:user_id]
+    topic[:category_id] ||= -1 if topic[:archetype] != Archetype.private_message
+    topic[:visible] = true unless topic.has_key?(:visible)
+    topic[:closed] ||= false
+    topic[:views] ||= 0
+    topic[:created_at] ||= NOW
+    topic[:bumped_at] ||= topic[:created_at]
+    topic[:updated_at] ||= topic[:created_at]
+    topic[:participant_count] ||= 1
+    topic
   end
 
   def process_post(post)

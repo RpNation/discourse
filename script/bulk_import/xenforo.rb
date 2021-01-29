@@ -740,7 +740,7 @@ class BulkImport::XenForo < BulkImport::Base
     user_id topic_id post_id name created_at updated_at
   }
 
-  TOPIC_COLUMNS ||= %i{
+  TOPIC_COLUMNS = %i{
     id archetype title fancy_title slug user_id last_post_user_id category_id
     visible closed pinned_at views created_at bumped_at updated_at participant_count
   }

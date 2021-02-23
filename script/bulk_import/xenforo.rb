@@ -554,7 +554,7 @@ class BulkImport::XenForo < BulkImport::Base
       user_id = user_id_from_imported_id(row[0])
       post_id = post_id_from_imported_id(row[1])
       topic_id = topic_id_from_imported_id(row[2])
-      name = row[3]
+      name = row[3].truncate(97)
       created_at = Time.zone.at(row[4])
       next unless user_id
 

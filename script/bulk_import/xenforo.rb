@@ -38,6 +38,9 @@ class BulkImport::XenForo < BulkImport::Base
   end
 
   def execute
+    time1 = Time.new
+    puts "Starting time: " + time1.inspect
+
     # enable as per requirement:
     SiteSetting.automatic_backups_enabled = false
     SiteSetting.disable_emails = "non-staff"
@@ -83,6 +86,8 @@ class BulkImport::XenForo < BulkImport::Base
 
     import_attachments
     import_avatars
+    time1 = Time.new
+    puts "Ending time: " + time1.inspect
   end
 
   def import_groups
@@ -554,7 +559,7 @@ class BulkImport::XenForo < BulkImport::Base
       user_id = user_id_from_imported_id(row[0])
       post_id = post_id_from_imported_id(row[1])
       topic_id = topic_id_from_imported_id(row[2])
-      name = row[3].truncate(97)
+      name = row[3].truncate(100)
       created_at = Time.zone.at(row[4])
       next unless user_id
 
